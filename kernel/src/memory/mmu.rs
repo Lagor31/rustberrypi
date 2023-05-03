@@ -4,8 +4,7 @@
 
 //! Memory Management Unit.
 
-#[cfg(target_arch = "aarch64")]
-#[path = "../_arch/aarch64/memory/mmu.rs"]
+#[path = "../aarch64/memory/mmu.rs"]
 mod arch_mmu;
 
 mod mapping_record;

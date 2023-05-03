@@ -9,8 +9,7 @@
 //! - <https://stackoverflow.com/questions/41081240/idiomatic-callbacks-in-rust>
 //! - <https://doc.rust-lang.org/stable/std/panic/fn.set_hook.html>
 
-#[cfg(target_arch = "aarch64")]
-#[path = "_arch/aarch64/time.rs"]
+#[path = "aarch64/time.rs"]
 mod arch_time;
 
 use crate::{

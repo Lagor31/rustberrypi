@@ -43,9 +43,6 @@ fn _panic_exit() -> ! {
 fn panic_prevent_reenter() {
     use core::sync::atomic::{AtomicBool, Ordering};
 
-    #[cfg(not(target_arch = "aarch64"))]
-    compile_error!("Add the target_arch to above's check if the following code is safe to use");
-
     static PANIC_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
     if !PANIC_IN_PROGRESS.load(Ordering::Relaxed) {

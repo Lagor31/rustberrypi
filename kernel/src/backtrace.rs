@@ -4,8 +4,7 @@
 
 //! Backtracing support.
 
-#[cfg(target_arch = "aarch64")]
-#[path = "_arch/aarch64/backtrace.rs"]
+#[path = "aarch64/backtrace.rs"]
 mod arch_backtrace;
 
 use crate::{

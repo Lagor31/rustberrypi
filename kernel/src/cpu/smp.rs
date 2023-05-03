@@ -4,8 +4,7 @@
 
 //! Symmetric multiprocessing.
 
-#[cfg(target_arch = "aarch64")]
-#[path = "../_arch/aarch64/cpu/smp.rs"]
+#[path = "../aarch64/cpu/smp.rs"]
 mod arch_smp;
 
 //--------------------------------------------------------------------------------------------------
