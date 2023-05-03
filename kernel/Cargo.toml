@@ -1,0 +1,29 @@
+[package]
+name = "lagorpi"
+version = "0.0.1"
+authors = ["Federico Gorla <federicogorla@gmail.com>"]
+edition = "2021"
+
+[features]
+default = []
+debug_prints = []
+bsp_rpi4 = ["tock-registers"]
+
+##--------------------------------------------------------------------------------------------------
+## Dependencies
+##--------------------------------------------------------------------------------------------------
+
+[dependencies]
+debug-symbol-types = { path = "../libraries/debug-symbol-types" }
+linked_list_allocator = { version = "0.10.x", default-features = false, features = ["const_mut_refs"] }
+
+# Optional dependencies
+tock-registers = { version = "0.8.x", default-features = false, features = ["register_types"], optional = true }
+
+aarch64-cpu = { version = "9.x.x" }
+
+
+# Disable unit tests for the kernel binary.
+[[bin]]
+name = "kernel"
+path = "src/main.rs"
