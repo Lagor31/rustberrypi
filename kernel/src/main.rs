@@ -2,11 +2,6 @@
 //
 // Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
 
-// Rust embedded logo for `make doc`.
-#![doc(
-    html_logo_url = "https://raw.githubusercontent.com/rust-embedded/wg/master/assets/logo/ewg-logo-blue-white-on-transparent.png"
-)]
-
 //! The `kernel` binary.
 
 #![feature(format_args_nl)]

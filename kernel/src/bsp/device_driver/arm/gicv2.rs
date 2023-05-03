@@ -155,7 +155,7 @@ impl driver::interface::DeviceDriver for GICv2 {
         self.handler_table
             .write(|table| table.resize(IRQNumber::MAX_INCLUSIVE + 1, None));
 
-        if bsp::cpu::BOOT_CORE_ID == cpu::smp::core_id() {
+        if bsp::cpu::BOOT_CORE_ID == cpu::core_id() {
             self.gicd.boot_core_init();
         }
 
