@@ -7,10 +7,10 @@
 #[path = "aarch64/cpu.rs"]
 mod arch_cpu;
 
-#[path = "aarch64/cpu/boot.rs"]
+#[path = "aarch64/boot.rs"]
 mod arch_boot;
 
-#[path = "aarch64/cpu/smp.rs"]
+#[path = "aarch64/smp.rs"]
 mod arch_smp;
 
 //--------------------------------------------------------------------------------------------------

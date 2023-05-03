@@ -4,7 +4,7 @@
 
 //! Translation table.
 
-#[path = "../../aarch64/memory/mmu/translation_table.rs"]
+#[path = "../../aarch64/translation_table.rs"]
 mod arch_translation_table;
 
 use super::{AttributeFields, MemoryRegion};
