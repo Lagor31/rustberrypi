@@ -80,7 +80,7 @@ mod gicc;
 mod gicd;
 
 use crate::{
-    bsp::{self, device_driver::common::BoundedUsize},
+    bsp::device_driver::common::BoundedUsize,
     cpu, driver, exception,
     memory::{Address, Virtual},
     synchronization,
@@ -155,7 +155,7 @@ impl driver::interface::DeviceDriver for GICv2 {
         self.handler_table
             .write(|table| table.resize(IRQNumber::MAX_INCLUSIVE + 1, None));
 
-        if bsp::cpu::BOOT_CORE_ID == cpu::core_id() {
+        if cpu::BOOT_CORE_ID == cpu::core_id() {
             self.gicd.boot_core_init();
         }
 
