@@ -14,18 +14,6 @@ use crate::bsp;
 pub use bsp::device_driver::IRQNumber;
 
 /// The IRQ map.
-#[cfg(feature = "bsp_rpi3")]
-pub mod irq_map {
-    use super::bsp::device_driver::{IRQNumber, LocalIRQ, PeripheralIRQ};
-
-    /// The non-secure physical timer IRQ number.
-    pub const ARM_NS_PHYSICAL_TIMER: IRQNumber = IRQNumber::Local(LocalIRQ::new(1));
-
-    pub(in crate::bsp) const PL011_UART: IRQNumber = IRQNumber::Peripheral(PeripheralIRQ::new(57));
-}
-
-/// The IRQ map.
-#[cfg(feature = "bsp_rpi4")]
 pub mod irq_map {
     use super::bsp::device_driver::IRQNumber;
 

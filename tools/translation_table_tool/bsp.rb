@@ -36,15 +36,8 @@ class RaspberryPi
 
     def phys_addr_space_end_page
         x = MEMORY_SRC.grep(/pub const END/)
-        x = case BSP_TYPE
-            when :rpi3
-                x[0]
-            when :rpi4
-                x[1]
-            else
-                raise
-            end
-
+        x =  x[0]
+        
         # Extract the hex literal with underscores like 0x0123_abcd.
         x = x.scan(/0x[\h_]*/)[0]
 

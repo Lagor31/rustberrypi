@@ -3,77 +3,7 @@
 // Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
 
 //! BSP Memory Management.
-//!
-//! The physical memory layout.
-//!
-//! The Raspberry's firmware copies the kernel binary to 0x8_0000. The preceding region will be used
-//! as the boot core's stack.
-//!
-//! +---------------------------------------+
-//! |                                       | boot_core_stack_start @ 0x0
-//! |                                       |                                ^
-//! | Boot-core Stack                       |                                | stack
-//! |                                       |                                | growth
-//! |                                       |                                | direction
-//! +---------------------------------------+
-//! |                                       | code_start @ 0x8_0000 == boot_core_stack_end_exclusive
-//! | .text                                 |
-//! | .rodata                               |
-//! | .got                                  |
-//! | .kernel_symbols                       |
-//! |                                       |
-//! +---------------------------------------+
-//! |                                       | data_start == code_end_exclusive
-//! | .data                                 |
-//! | .bss                                  |
-//! |                                       |
-//! +---------------------------------------+
-//! |                                       | heap_start == data_end_exclusive
-//! | .heap                                 |
-//! |                                       |
-//! +---------------------------------------+
-//! |                                       | heap_end_exclusive
-//! |                                       |
-//!
-//!
-//!
-//!
-//!
-//! The virtual memory layout is as follows:
-//!
-//! +---------------------------------------+
-//! |                                       | code_start @ __kernel_virt_start_addr
-//! | .text                                 |
-//! | .rodata                               |
-//! | .got                                  |
-//! | .kernel_symbols                       |
-//! |                                       |
-//! +---------------------------------------+
-//! |                                       | data_start == code_end_exclusive
-//! | .data                                 |
-//! | .bss                                  |
-//! |                                       |
-//! +---------------------------------------+
-//! |                                       | heap_start == data_end_exclusive
-//! | .heap                                 |
-//! |                                       |
-//! +---------------------------------------+
-//! |                                       |  mmio_remap_start == heap_end_exclusive
-//! | VA region for MMIO remapping          |
-//! |                                       |
-//! +---------------------------------------+
-//! |                                       |  mmio_remap_end_exclusive
-//! | Unmapped guard page                   |
-//! |                                       |
-//! +---------------------------------------+
-//! |                                       | boot_core_stack_start
-//! |                                       |                                ^
-//! | Boot-core Stack                       |                                | stack
-//! |                                       |                                | growth
-//! |                                       |                                | direction
-//! +---------------------------------------+
-//! |                                       | boot_core_stack_end_exclusive
-//! |                                       |
+
 pub mod mmu;
 
 use crate::memory::{mmu::PageAddress, Address, Physical, Virtual};
@@ -111,27 +41,6 @@ pub(super) mod map {
     use super::*;
 
     /// Physical devices.
-    #[cfg(feature = "bsp_rpi3")]
-    pub mod mmio {
-        use super::*;
-
-        pub const PERIPHERAL_IC_START: Address<Physical> = Address::new(0x3F00_B200);
-        pub const PERIPHERAL_IC_SIZE:  usize             =              0x24;
-
-        pub const GPIO_START:          Address<Physical> = Address::new(0x3F20_0000);
-        pub const GPIO_SIZE:           usize             =              0xA0;
-
-        pub const PL011_UART_START:    Address<Physical> = Address::new(0x3F20_1000);
-        pub const PL011_UART_SIZE:     usize             =              0x48;
-
-        pub const LOCAL_IC_START:      Address<Physical> = Address::new(0x4000_0000);
-        pub const LOCAL_IC_SIZE:       usize             =              0x100;
-
-        pub const END:                 Address<Physical> = Address::new(0x4001_0000);
-    }
-
-    /// Physical devices.
-    #[cfg(feature = "bsp_rpi4")]
     pub mod mmio {
         use super::*;
 
