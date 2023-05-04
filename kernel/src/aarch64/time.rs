@@ -12,7 +12,7 @@
 //! crate::time::arch_time
 
 use crate::{
-    bsp::{self, exception},
+    drivers::{self, exception},
     warn,
 };
 use aarch64_cpu::{asm::barrier, registers::*};
@@ -166,7 +166,7 @@ pub fn spin_for(duration: Duration) {
 
 /// The associated IRQ number.
 pub const fn timeout_irq() -> exception::asynchronous::IRQNumber {
-    bsp::exception::asynchronous::irq_map::ARM_NS_PHYSICAL_TIMER
+    drivers::exception::asynchronous::irq_map::ARM_NS_PHYSICAL_TIMER
 }
 
 /// Program a timer IRQ to be fired after `delay` has passed.

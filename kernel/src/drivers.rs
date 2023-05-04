@@ -4,7 +4,94 @@
 
 //! Conditional reexporting of Board Support Packages.
 
-mod device_driver;
+mod device_driver {
+
+    mod arm {
+        pub mod gicv2;
+
+        pub use gicv2::*;
+    }
+
+    mod bcm {
+
+        mod bcm2xxx_gpio;
+        mod bcm2xxx_pl011_uart;
+
+        pub use bcm2xxx_gpio::*;
+        pub use bcm2xxx_pl011_uart::*;
+    }
+
+    mod common {
+        // SPDX-License-Identifier: MIT OR Apache-2.0
+        //
+        // Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
+
+        //! Common device driver code.
+
+        use crate::memory::{Address, Virtual};
+        use core::{fmt, marker::PhantomData, ops};
+
+        //--------------------------------------------------------------------------------------------------
+        // Public Definitions
+        //--------------------------------------------------------------------------------------------------
+
+        pub struct MMIODerefWrapper<T> {
+            start_addr: Address<Virtual>,
+            phantom: PhantomData<fn() -> T>,
+        }
+
+        /// A wrapper type for usize with integrated range bound check.
+        #[derive(Copy, Clone)]
+        pub struct BoundedUsize<const MAX_INCLUSIVE: usize>(usize);
+
+        //--------------------------------------------------------------------------------------------------
+        // Public Code
+        //--------------------------------------------------------------------------------------------------
+
+        impl<T> MMIODerefWrapper<T> {
+            /// Create an instance.
+            pub const unsafe fn new(start_addr: Address<Virtual>) -> Self {
+                Self {
+                    start_addr,
+                    phantom: PhantomData,
+                }
+            }
+        }
+
+        impl<T> ops::Deref for MMIODerefWrapper<T> {
+            type Target = T;
+
+            fn deref(&self) -> &Self::Target {
+                unsafe { &*(self.start_addr.as_usize() as *const _) }
+            }
+        }
+
+        impl<const MAX_INCLUSIVE: usize> BoundedUsize<{ MAX_INCLUSIVE }> {
+            pub const MAX_INCLUSIVE: usize = MAX_INCLUSIVE;
+
+            /// Creates a new instance if number <= MAX_INCLUSIVE.
+            pub const fn new(number: usize) -> Self {
+                assert!(number <= MAX_INCLUSIVE);
+
+                Self(number)
+            }
+
+            /// Return the wrapped number.
+            pub const fn get(self) -> usize {
+                self.0
+            }
+        }
+
+        impl<const MAX_INCLUSIVE: usize> fmt::Display for BoundedUsize<{ MAX_INCLUSIVE }> {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+    }
+
+    pub use arm::*;
+    pub use bcm::*;
+}
 
 mod raspberrypi {
     pub mod driver {
@@ -16,8 +103,8 @@ mod raspberrypi {
 
         use super::{exception, memory::map::mmio};
         use crate::{
-            bsp::device_driver,
             console, driver as generic_driver,
+            drivers::device_driver,
             exception::{self as generic_exception},
             memory,
             memory::mmu::MMIODescriptor,
@@ -170,23 +257,23 @@ mod raspberrypi {
     pub mod exception {
         /// Doc for async
         pub mod asynchronous {
-            use crate::bsp;
+            use crate::drivers;
 
             //--------------------------------------------------------------------------------------------------
             // Public Definitions
             //--------------------------------------------------------------------------------------------------
 
             /// Export for reuse in generic asynchronous.rs.
-            pub use bsp::device_driver::IRQNumber;
+            pub use drivers::device_driver::IRQNumber;
 
             /// The IRQ map.
             pub mod irq_map {
-                use super::bsp::device_driver::IRQNumber;
+                use super::drivers::device_driver::IRQNumber;
 
                 /// The non-secure physical timer IRQ number.
                 pub const ARM_NS_PHYSICAL_TIMER: IRQNumber = IRQNumber::new(30);
 
-                pub(in crate::bsp) const PL011_UART: IRQNumber = IRQNumber::new(153);
+                pub(in crate::drivers) const PL011_UART: IRQNumber = IRQNumber::new(153);
             }
         }
     }
@@ -267,7 +354,7 @@ mod raspberrypi {
             const fn kernel_virt_addr_space_size() -> usize {
                 let __kernel_virt_addr_space_size;
 
-                include!("bsp/raspberrypi/kernel_virt_addr_space_size.ld");
+                include!("kernel_virt_addr_space_size.ld");
 
                 __kernel_virt_addr_space_size
             }
@@ -577,4 +664,5 @@ mod raspberrypi {
         }
     }
 }
+
 pub use raspberrypi::*;

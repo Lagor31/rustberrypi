@@ -5,8 +5,8 @@
 //! GPIO Driver.
 
 use crate::{
-    bsp::device_driver::common::MMIODerefWrapper,
     driver,
+    drivers::device_driver::common::MMIODerefWrapper,
     exception::asynchronous::IRQNumber,
     memory::{Address, Virtual},
     synchronization,

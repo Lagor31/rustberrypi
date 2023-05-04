@@ -66,7 +66,7 @@ NM_BINARY         = aarch64-linux-gnu-nm
 READELF_BINARY    = aarch64-linux-gnu-readelf
 OPENOCD_ARG       = -f /openocd/tcl/interface/ftdi/olimex-arm-usb-tiny-h.cfg -f /openocd/rpi4.cfg
 JTAG_BOOT_IMAGE   = ../X1_JTAG_boot/jtag_boot_rpi4.img
-LD_SCRIPT_PATH    = $(shell pwd)/kernel/src/bsp/raspberrypi
+LD_SCRIPT_PATH    = $(shell pwd)/kernel/src/
 RUSTC_MISC_ARGS   = -C target-cpu=cortex-a72 -C force-frame-pointers
 
 # Export for build.rs.

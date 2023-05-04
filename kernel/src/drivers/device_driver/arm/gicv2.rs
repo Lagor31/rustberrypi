@@ -8,8 +8,9 @@ mod gicc;
 mod gicd;
 
 use crate::{
-    bsp::device_driver::common::BoundedUsize,
-    cpu, driver, exception,
+    cpu, driver,
+    drivers::device_driver::common::BoundedUsize,
+    exception,
     memory::{Address, Virtual},
     synchronization,
     synchronization::InitStateLock,

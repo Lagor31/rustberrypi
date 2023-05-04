@@ -10,8 +10,8 @@
 //! - <https://developer.arm.com/documentation/ddi0183/latest>
 
 use crate::{
-    bsp::device_driver::common::MMIODerefWrapper,
     console, cpu, driver,
+    drivers::device_driver::common::MMIODerefWrapper,
     exception::{self, asynchronous::IRQNumber},
     memory::{Address, Virtual},
     synchronization,

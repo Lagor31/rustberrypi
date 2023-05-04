@@ -7,7 +7,7 @@
 pub mod heap_alloc;
 pub mod mmu;
 
-use crate::{bsp, common};
+use crate::{common, drivers};
 use core::{
     fmt,
     marker::PhantomData,
@@ -60,7 +60,7 @@ impl<ATYPE: AddressType> Address<ATYPE> {
     /// Align down to page size.
     #[must_use]
     pub const fn align_down_page(self) -> Self {
-        let aligned = common::align_down(self.value, bsp::memory::mmu::KernelGranule::SIZE);
+        let aligned = common::align_down(self.value, drivers::memory::mmu::KernelGranule::SIZE);
 
         Self::new(aligned)
     }
@@ -68,19 +68,19 @@ impl<ATYPE: AddressType> Address<ATYPE> {
     /// Align up to page size.
     #[must_use]
     pub const fn align_up_page(self) -> Self {
-        let aligned = common::align_up(self.value, bsp::memory::mmu::KernelGranule::SIZE);
+        let aligned = common::align_up(self.value, drivers::memory::mmu::KernelGranule::SIZE);
 
         Self::new(aligned)
     }
 
     /// Checks if the address is page aligned.
     pub const fn is_page_aligned(&self) -> bool {
-        common::is_aligned(self.value, bsp::memory::mmu::KernelGranule::SIZE)
+        common::is_aligned(self.value, drivers::memory::mmu::KernelGranule::SIZE)
     }
 
     /// Return the address' offset into the corresponding page.
     pub const fn offset_into_page(&self) -> usize {
-        self.value & bsp::memory::mmu::KernelGranule::MASK
+        self.value & drivers::memory::mmu::KernelGranule::MASK
     }
 }
 
@@ -123,12 +123,12 @@ impl<ATYPE: AddressType> Sub<Address<ATYPE>> for Address<ATYPE> {
 impl Address<Virtual> {
     /// Checks if the address is part of the boot core stack region.
     pub fn is_valid_stack_addr(&self) -> bool {
-        bsp::memory::mmu::virt_boot_core_stack_region().contains(*self)
+        drivers::memory::mmu::virt_boot_core_stack_region().contains(*self)
     }
 
     /// Checks if the address is part of the kernel code region.
     pub fn is_valid_code_addr(&self) -> bool {
-        bsp::memory::mmu::virt_code_region().contains(*self)
+        drivers::memory::mmu::virt_code_region().contains(*self)
     }
 }
 
@@ -179,16 +179,16 @@ mod tests {
     /// Sanity of [Address] methods.
     #[kernel_test]
     fn address_type_method_sanity() {
-        let addr = Address::<Virtual>::new(bsp::memory::mmu::KernelGranule::SIZE + 100);
+        let addr = Address::<Virtual>::new(drivers::memory::mmu::KernelGranule::SIZE + 100);
 
         assert_eq!(
             addr.align_down_page().as_usize(),
-            bsp::memory::mmu::KernelGranule::SIZE
+            drivers::memory::mmu::KernelGranule::SIZE
         );
 
         assert_eq!(
             addr.align_up_page().as_usize(),
-            bsp::memory::mmu::KernelGranule::SIZE * 2
+            drivers::memory::mmu::KernelGranule::SIZE * 2
         );
 
         assert!(!addr.is_page_aligned());

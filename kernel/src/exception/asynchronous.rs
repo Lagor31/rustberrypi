@@ -52,7 +52,7 @@ mod null_irq_manager {
     }
 }
 
-use crate::{bsp, synchronization};
+use crate::{drivers, synchronization};
 use core::marker::PhantomData;
 
 //--------------------------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ pub use arch_asynchronous::{
 //--------------------------------------------------------------------------------------------------
 
 /// Interrupt number as defined by the BSP.
-pub type IRQNumber = bsp::exception::asynchronous::IRQNumber;
+pub type IRQNumber = drivers::exception::asynchronous::IRQNumber;
 
 /// Interrupt descriptor.
 #[derive(Copy, Clone)]

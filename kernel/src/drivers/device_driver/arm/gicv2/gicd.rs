@@ -8,7 +8,7 @@
 //!   - SPI - Shared Peripheral Interrupt.
 
 use crate::{
-    bsp::device_driver::common::MMIODerefWrapper,
+    drivers::device_driver::common::MMIODerefWrapper,
     memory::{Address, Virtual},
     state, synchronization,
     synchronization::IRQSafeNullLock,

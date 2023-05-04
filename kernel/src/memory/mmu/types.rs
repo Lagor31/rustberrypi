@@ -5,7 +5,7 @@
 //! Memory Management Unit types.
 
 use crate::{
-    bsp, common,
+    common, drivers,
     memory::{Address, AddressType, Physical},
 };
 use core::{convert::From, iter::Step, num::NonZeroUsize, ops::Range};
@@ -88,7 +88,7 @@ impl<ATYPE: AddressType> PageAddress<ATYPE> {
 
         let delta = count
             .unsigned_abs()
-            .checked_mul(bsp::memory::mmu::KernelGranule::SIZE)?;
+            .checked_mul(drivers::memory::mmu::KernelGranule::SIZE)?;
         let result = if count.is_positive() {
             self.inner.as_usize().checked_add(delta)?
         } else {
@@ -104,7 +104,7 @@ impl<ATYPE: AddressType> PageAddress<ATYPE> {
 impl<ATYPE: AddressType> From<usize> for PageAddress<ATYPE> {
     fn from(addr: usize) -> Self {
         assert!(
-            common::is_aligned(addr, bsp::memory::mmu::KernelGranule::SIZE),
+            common::is_aligned(addr, drivers::memory::mmu::KernelGranule::SIZE),
             "Input usize not page aligned"
         );
 
@@ -131,7 +131,7 @@ impl<ATYPE: AddressType> Step for PageAddress<ATYPE> {
         // Since start <= end, do unchecked arithmetic.
         Some(
             (end.inner.as_usize() - start.inner.as_usize())
-                >> bsp::memory::mmu::KernelGranule::SHIFT,
+                >> drivers::memory::mmu::KernelGranule::SHIFT,
         )
     }
 
@@ -312,7 +312,7 @@ mod tests {
     #[kernel_test]
     fn pageaddress_type_method_sanity() {
         let page_addr: PageAddress<Virtual> =
-            PageAddress::from(bsp::memory::mmu::KernelGranule::SIZE * 2);
+            PageAddress::from(drivers::memory::mmu::KernelGranule::SIZE * 2);
 
         assert_eq!(
             page_addr.checked_offset(-2),
@@ -322,7 +322,7 @@ mod tests {
         assert_eq!(
             page_addr.checked_offset(2),
             Some(PageAddress::<Virtual>::from(
-                bsp::memory::mmu::KernelGranule::SIZE * 4
+                drivers::memory::mmu::KernelGranule::SIZE * 4
             ))
         );
 
@@ -339,7 +339,7 @@ mod tests {
         );
 
         let zero = PageAddress::<Virtual>::from(0);
-        let three = PageAddress::<Virtual>::from(bsp::memory::mmu::KernelGranule::SIZE * 3);
+        let three = PageAddress::<Virtual>::from(drivers::memory::mmu::KernelGranule::SIZE * 3);
         assert_eq!(PageAddress::steps_between(&zero, &three), Some(3));
     }
 
@@ -351,12 +351,12 @@ mod tests {
         assert_eq!(zero_region.num_pages(), 0);
         assert_eq!(zero_region.size(), 0);
 
-        let one = PageAddress::<Virtual>::from(bsp::memory::mmu::KernelGranule::SIZE);
+        let one = PageAddress::<Virtual>::from(drivers::memory::mmu::KernelGranule::SIZE);
         let one_region = MemoryRegion::new(zero, one);
         assert_eq!(one_region.num_pages(), 1);
-        assert_eq!(one_region.size(), bsp::memory::mmu::KernelGranule::SIZE);
+        assert_eq!(one_region.size(), drivers::memory::mmu::KernelGranule::SIZE);
 
-        let three = PageAddress::<Virtual>::from(bsp::memory::mmu::KernelGranule::SIZE * 3);
+        let three = PageAddress::<Virtual>::from(drivers::memory::mmu::KernelGranule::SIZE * 3);
         let mut three_region = MemoryRegion::new(zero, three);
         assert!(three_region.contains(zero.into_inner()));
         assert!(!three_region.contains(three.into_inner()));
@@ -371,7 +371,7 @@ mod tests {
         for (i, alloc) in allocation.into_iter().enumerate() {
             assert_eq!(
                 alloc.into_inner().as_usize(),
-                i * bsp::memory::mmu::KernelGranule::SIZE
+                i * drivers::memory::mmu::KernelGranule::SIZE
             );
         }
     }

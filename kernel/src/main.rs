@@ -28,11 +28,11 @@ mod panic_wait;
 mod synchronization;
 
 pub mod backtrace;
-pub mod bsp;
 pub mod common;
 pub mod console;
 pub mod cpu;
 pub mod driver;
+pub mod drivers;
 pub mod exception;
 pub mod memory;
 pub mod print;
@@ -72,14 +72,14 @@ unsafe fn kernel_init() -> ! {
     }
 
     // Initialize the BSP driver subsystem.
-    if let Err(x) = bsp::driver::init() {
+    if let Err(x) = drivers::driver::init() {
         panic!("Error initializing BSP driver subsystem: {}", x);
     }
 
     // Initialize all device drivers.
     driver::driver_manager().init_drivers_and_irqs();
 
-    bsp::memory::mmu::kernel_add_mapping_records_for_precomputed();
+    drivers::memory::mmu::kernel_add_mapping_records_for_precomputed();
 
     // Unmask interrupts on the boot CPU core.
     exception::asynchronous::local_irq_unmask();
@@ -97,7 +97,7 @@ fn kernel_main() -> ! {
     use core::time::Duration;
 
     info!("{}", version());
-    info!("Booting on: {}", bsp::board_name());
+    info!("Booting on: {}", drivers::board_name());
 
     info!("MMU online:");
     memory::mmu::kernel_print_mappings();
