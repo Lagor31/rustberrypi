@@ -103,3 +103,23 @@ _start:
 .size	_start, . - _start
 .type	_start, function
 .global	_start
+
+
+.section ".init"
+_start_secondary:
+
+	// Only proceed on the boot core. Park it otherwise.
+	mrs	x1, MPIDR_EL1
+	and	x1, x1, {CONST_CORE_ID_MASK}
+	ldr	x2, BOOT_CORE_ID      // provided by bsp/__board_name__/cpu.rs
+	cmp	x1, x2
+	b.ne	.L_parking_loop2
+
+
+.L_parking_loop2:
+	wfe
+	b	.L_parking_loop2
+
+.size	_start_secondary, . - _start_secondary
+.type	_start_secondary, function
+.global	_start_secondary

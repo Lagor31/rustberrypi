@@ -14,7 +14,7 @@ mod bcm2711_pl011_uart;
 pub use bcm2711_gpio::*;
 pub use bcm2711_pl011_uart::*;
 
-mod common;
+pub mod common;
 
 use super::{exception, memory::map::mmio};
 use crate::{

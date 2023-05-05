@@ -21,8 +21,10 @@
 #![feature(step_trait)]
 #![feature(trait_alias)]
 #![feature(unchecked_math)]
-
+#![feature(never_type)]
 use alloc::vec::Vec;
+
+use crate::smp::start_core;
 
 extern crate alloc;
 
@@ -39,6 +41,7 @@ pub mod drivers;
 pub mod exception;
 pub mod memory;
 pub mod print;
+pub mod smp;
 pub mod state;
 pub mod symbols;
 pub mod time;
@@ -65,6 +68,8 @@ pub fn version() -> &'static str {
 /// - Printing will not work until the respective driver's MMIO is remapped.
 #[no_mangle]
 unsafe fn kernel_init() -> ! {
+    start_core(1);
+
     exception::handling_init();
     memory::init();
 
@@ -96,7 +101,6 @@ unsafe fn kernel_init() -> ! {
 /// The main function running after the early init.
 fn kernel_main() -> ! {
     use alloc::boxed::Box;
-    use core::time::Duration;
 
     info!("{}", version());
     info!("Booting on: {}", board::board_name());
@@ -136,10 +140,12 @@ fn kernel_main() -> ! {
         }
     }
 
+    /*
     time::time_manager().set_timeout_once(Duration::from_secs(5), Box::new(|| info!("Once 5")));
     time::time_manager().set_timeout_once(Duration::from_secs(3), Box::new(|| info!("Once 2")));
     time::time_manager()
         .set_timeout_periodic(Duration::from_secs(1), Box::new(|| info!("Periodic 1 sec")));
+     */
 
     info!("Echoing input now");
     cpu::wait_forever();
