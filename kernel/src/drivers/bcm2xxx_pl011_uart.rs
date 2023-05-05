@@ -11,7 +11,7 @@
 
 use crate::{
     console, cpu, driver,
-    drivers::device_driver::common::MMIODerefWrapper,
+    drivers::common::MMIODerefWrapper,
     exception::{self, asynchronous::IRQNumber},
     memory::{Address, Virtual},
     synchronization,
@@ -193,6 +193,7 @@ register_bitfields! {
 
 register_structs! {
     #[allow(non_snake_case)]
+    ///Regblock
     pub RegisterBlock {
         (0x00 => DR: ReadWrite<u32>),
         (0x04 => _reserved1),
@@ -396,6 +397,8 @@ impl fmt::Write for PL011UartInner {
 //--------------------------------------------------------------------------------------------------
 
 impl PL011Uart {
+    ///Driver name
+
     pub const COMPATIBLE: &'static str = "BCM PL011 UART";
 
     /// Create an instance.

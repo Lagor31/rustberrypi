@@ -9,12 +9,13 @@ mod gicd;
 
 use crate::{
     cpu, driver,
-    drivers::device_driver::common::BoundedUsize,
+    drivers::common::BoundedUsize,
     exception,
     memory::{Address, Virtual},
     synchronization,
     synchronization::InitStateLock,
 };
+
 use alloc::vec::Vec;
 
 //--------------------------------------------------------------------------------------------------
@@ -48,7 +49,7 @@ pub struct GICv2 {
 
 impl GICv2 {
     const MAX_IRQ_NUMBER: usize = 1019;
-
+    ///Driver name
     pub const COMPATIBLE: &'static str = "GICv2 (ARM Generic Interrupt Controller v2)";
 
     /// Create an instance.

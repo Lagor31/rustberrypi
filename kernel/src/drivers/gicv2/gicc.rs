@@ -5,7 +5,7 @@
 //! GICC Driver - GIC CPU interface.
 
 use crate::{
-    drivers::device_driver::common::MMIODerefWrapper,
+    drivers::common::MMIODerefWrapper,
     exception,
     memory::{Address, Virtual},
 };

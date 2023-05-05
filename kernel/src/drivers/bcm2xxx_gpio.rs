@@ -6,7 +6,7 @@
 
 use crate::{
     driver,
-    drivers::device_driver::common::MMIODerefWrapper,
+    drivers::common::MMIODerefWrapper,
     exception::asynchronous::IRQNumber,
     memory::{Address, Virtual},
     synchronization,
@@ -168,6 +168,7 @@ impl GPIOInner {
 //--------------------------------------------------------------------------------------------------
 
 impl GPIO {
+    ///Driver name
     pub const COMPATIBLE: &'static str = "BCM GPIO";
 
     /// Create an instance.

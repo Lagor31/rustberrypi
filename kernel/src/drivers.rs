@@ -4,93 +4,82 @@
 
 //! Conditional reexporting of Board Support Packages.
 
-mod device_driver {
+pub mod gicv2;
 
-    mod arm {
-        pub mod gicv2;
+pub use gicv2::*;
 
-        pub use gicv2::*;
+mod bcm2xxx_gpio;
+mod bcm2xxx_pl011_uart;
+
+pub use bcm2xxx_gpio::*;
+pub use bcm2xxx_pl011_uart::*;
+
+mod common {
+    // SPDX-License-Identifier: MIT OR Apache-2.0
+    //
+    // Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
+
+    //! Common device driver code.
+
+    use crate::memory::{Address, Virtual};
+    use core::{fmt, marker::PhantomData, ops};
+
+    //--------------------------------------------------------------------------------------------------
+    // Public Definitions
+    //--------------------------------------------------------------------------------------------------
+
+    pub struct MMIODerefWrapper<T> {
+        start_addr: Address<Virtual>,
+        phantom: PhantomData<fn() -> T>,
     }
 
-    mod bcm {
+    /// A wrapper type for usize with integrated range bound check.
+    #[derive(Copy, Clone)]
+    pub struct BoundedUsize<const MAX_INCLUSIVE: usize>(usize);
 
-        mod bcm2xxx_gpio;
-        mod bcm2xxx_pl011_uart;
+    //--------------------------------------------------------------------------------------------------
+    // Public Code
+    //--------------------------------------------------------------------------------------------------
 
-        pub use bcm2xxx_gpio::*;
-        pub use bcm2xxx_pl011_uart::*;
-    }
-
-    mod common {
-        // SPDX-License-Identifier: MIT OR Apache-2.0
-        //
-        // Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
-
-        //! Common device driver code.
-
-        use crate::memory::{Address, Virtual};
-        use core::{fmt, marker::PhantomData, ops};
-
-        //--------------------------------------------------------------------------------------------------
-        // Public Definitions
-        //--------------------------------------------------------------------------------------------------
-
-        pub struct MMIODerefWrapper<T> {
-            start_addr: Address<Virtual>,
-            phantom: PhantomData<fn() -> T>,
-        }
-
-        /// A wrapper type for usize with integrated range bound check.
-        #[derive(Copy, Clone)]
-        pub struct BoundedUsize<const MAX_INCLUSIVE: usize>(usize);
-
-        //--------------------------------------------------------------------------------------------------
-        // Public Code
-        //--------------------------------------------------------------------------------------------------
-
-        impl<T> MMIODerefWrapper<T> {
-            /// Create an instance.
-            pub const unsafe fn new(start_addr: Address<Virtual>) -> Self {
-                Self {
-                    start_addr,
-                    phantom: PhantomData,
-                }
-            }
-        }
-
-        impl<T> ops::Deref for MMIODerefWrapper<T> {
-            type Target = T;
-
-            fn deref(&self) -> &Self::Target {
-                unsafe { &*(self.start_addr.as_usize() as *const _) }
-            }
-        }
-
-        impl<const MAX_INCLUSIVE: usize> BoundedUsize<{ MAX_INCLUSIVE }> {
-            pub const MAX_INCLUSIVE: usize = MAX_INCLUSIVE;
-
-            /// Creates a new instance if number <= MAX_INCLUSIVE.
-            pub const fn new(number: usize) -> Self {
-                assert!(number <= MAX_INCLUSIVE);
-
-                Self(number)
-            }
-
-            /// Return the wrapped number.
-            pub const fn get(self) -> usize {
-                self.0
-            }
-        }
-
-        impl<const MAX_INCLUSIVE: usize> fmt::Display for BoundedUsize<{ MAX_INCLUSIVE }> {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "{}", self.0)
+    impl<T> MMIODerefWrapper<T> {
+        /// Create an instance.
+        pub const unsafe fn new(start_addr: Address<Virtual>) -> Self {
+            Self {
+                start_addr,
+                phantom: PhantomData,
             }
         }
     }
 
-    pub use arm::*;
-    pub use bcm::*;
+    impl<T> ops::Deref for MMIODerefWrapper<T> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            unsafe { &*(self.start_addr.as_usize() as *const _) }
+        }
+    }
+
+    impl<const MAX_INCLUSIVE: usize> BoundedUsize<{ MAX_INCLUSIVE }> {
+        pub const MAX_INCLUSIVE: usize = MAX_INCLUSIVE;
+
+        /// Creates a new instance if number <= MAX_INCLUSIVE.
+        pub const fn new(number: usize) -> Self {
+            assert!(number <= MAX_INCLUSIVE);
+
+            Self(number)
+        }
+
+        /// Return the wrapped number.
+        pub const fn get(self) -> usize {
+            self.0
+        }
+    }
+
+    impl<const MAX_INCLUSIVE: usize> fmt::Display for BoundedUsize<{ MAX_INCLUSIVE }> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.0)
+        }
+    }
 }
 
 mod raspberrypi {
@@ -104,7 +93,7 @@ mod raspberrypi {
         use super::{exception, memory::map::mmio};
         use crate::{
             console, driver as generic_driver,
-            drivers::device_driver,
+            drivers::{GICv2, PL011Uart, GPIO},
             exception::{self as generic_exception},
             memory,
             memory::mmu::MMIODescriptor,
@@ -118,10 +107,10 @@ mod raspberrypi {
         // Global instances
         //--------------------------------------------------------------------------------------------------
 
-        static mut PL011_UART: MaybeUninit<device_driver::PL011Uart> = MaybeUninit::uninit();
-        static mut GPIO: MaybeUninit<device_driver::GPIO> = MaybeUninit::uninit();
+        static mut PL011_UART: MaybeUninit<PL011Uart> = MaybeUninit::uninit();
+        static mut GPIO: MaybeUninit<GPIO> = MaybeUninit::uninit();
 
-        static mut INTERRUPT_CONTROLLER: MaybeUninit<device_driver::GICv2> = MaybeUninit::uninit();
+        static mut INTERRUPT_CONTROLLER: MaybeUninit<GICv2> = MaybeUninit::uninit();
 
         //--------------------------------------------------------------------------------------------------
         // Private Code
@@ -131,12 +120,9 @@ mod raspberrypi {
         unsafe fn instantiate_uart() -> Result<(), &'static str> {
             let mmio_descriptor =
                 MMIODescriptor::new(mmio::PL011_UART_START, mmio::PL011_UART_SIZE);
-            let virt_addr = memory::mmu::kernel_map_mmio(
-                device_driver::PL011Uart::COMPATIBLE,
-                &mmio_descriptor,
-            )?;
+            let virt_addr = memory::mmu::kernel_map_mmio(PL011Uart::COMPATIBLE, &mmio_descriptor)?;
 
-            PL011_UART.write(device_driver::PL011Uart::new(virt_addr));
+            PL011_UART.write(PL011Uart::new(virt_addr));
 
             Ok(())
         }
@@ -151,10 +137,9 @@ mod raspberrypi {
         /// This must be called only after successful init of the memory subsystem.
         unsafe fn instantiate_gpio() -> Result<(), &'static str> {
             let mmio_descriptor = MMIODescriptor::new(mmio::GPIO_START, mmio::GPIO_SIZE);
-            let virt_addr =
-                memory::mmu::kernel_map_mmio(device_driver::GPIO::COMPATIBLE, &mmio_descriptor)?;
+            let virt_addr = memory::mmu::kernel_map_mmio(GPIO::COMPATIBLE, &mmio_descriptor)?;
 
-            GPIO.write(device_driver::GPIO::new(virt_addr));
+            GPIO.write(GPIO::new(virt_addr));
 
             Ok(())
         }
@@ -173,7 +158,7 @@ mod raspberrypi {
             let gicc_mmio_descriptor = MMIODescriptor::new(mmio::GICC_START, mmio::GICC_SIZE);
             let gicc_virt_addr = memory::mmu::kernel_map_mmio("GICV2 GICC", &gicc_mmio_descriptor)?;
 
-            INTERRUPT_CONTROLLER.write(device_driver::GICv2::new(gicd_virt_addr, gicc_virt_addr));
+            INTERRUPT_CONTROLLER.write(GICv2::new(gicd_virt_addr, gicc_virt_addr));
 
             Ok(())
         }
@@ -264,11 +249,11 @@ mod raspberrypi {
             //--------------------------------------------------------------------------------------------------
 
             /// Export for reuse in generic asynchronous.rs.
-            pub use drivers::device_driver::IRQNumber;
+            pub use drivers::IRQNumber;
 
             /// The IRQ map.
             pub mod irq_map {
-                use super::drivers::device_driver::IRQNumber;
+                use super::drivers::IRQNumber;
 
                 /// The non-secure physical timer IRQ number.
                 pub const ARM_NS_PHYSICAL_TIMER: IRQNumber = IRQNumber::new(30);
