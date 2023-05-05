@@ -28,6 +28,7 @@ mod panic_wait;
 mod synchronization;
 
 pub mod backtrace;
+pub mod board;
 pub mod common;
 pub mod console;
 pub mod cpu;
@@ -39,7 +40,6 @@ pub mod print;
 pub mod state;
 pub mod symbols;
 pub mod time;
-
 //--------------------------------------------------------------------------------------------------
 // Public Code
 //--------------------------------------------------------------------------------------------------
@@ -79,7 +79,7 @@ unsafe fn kernel_init() -> ! {
     // Initialize all device drivers.
     driver::driver_manager().init_drivers_and_irqs();
 
-    drivers::raspberrypi::memory::mmu::kernel_add_mapping_records_for_precomputed();
+    memory::mmu::kernel_add_mapping_records_for_precomputed();
 
     // Unmask interrupts on the boot CPU core.
     exception::asynchronous::local_irq_unmask();
@@ -97,7 +97,7 @@ fn kernel_main() -> ! {
     use core::time::Duration;
 
     info!("{}", version());
-    info!("Booting on: {}", drivers::board_name());
+    info!("Booting on: {}", board::board_name());
 
     info!("MMU online:");
     memory::mmu::kernel_print_mappings();

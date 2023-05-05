@@ -13,16 +13,13 @@
 //!
 //! crate::memory::mmu::translation_table::arch_translation_table
 
-use crate::{
-    drivers,
-    memory::{
-        self,
-        mmu::{
-            arch_mmu::{Granule512MiB, Granule64KiB},
-            AccessPermissions, AttributeFields, MemAttributes, MemoryRegion, PageAddress,
-        },
-        Address, Physical, Virtual,
+use crate::memory::{
+    self,
+    mmu::{
+        arch_mmu::{Granule512MiB, Granule64KiB},
+        AccessPermissions, AttributeFields, MemAttributes, MemoryRegion, PageAddress,
     },
+    Address, Physical, Virtual,
 };
 use core::convert;
 use tock_registers::{
@@ -318,7 +315,7 @@ impl<const NUM_TABLES: usize, const START_FROM_TOP: bool>
     /// Create an instance.
     #[allow(clippy::assertions_on_constants)]
     const fn _new(for_precompute: bool) -> Self {
-        assert!(drivers::raspberrypi::memory::mmu::KernelGranule::SIZE == Granule64KiB::SIZE);
+        assert!(memory::mmu::KernelGranule::SIZE == Granule64KiB::SIZE);
 
         // Can't have a zero-sized address space.
         assert!(NUM_TABLES > 0);
@@ -433,9 +430,7 @@ impl<const NUM_TABLES: usize, const START_FROM_TOP: bool>
             return Err("Tried to map memory regions with unequal sizes");
         }
 
-        if phys_region.end_exclusive_page_addr()
-            > drivers::raspberrypi::memory::phys_addr_space_end_exclusive_addr()
-        {
+        if phys_region.end_exclusive_page_addr() > memory::phys_addr_space_end_exclusive_addr() {
             return Err("Tried to map outside of physical address space");
         }
 

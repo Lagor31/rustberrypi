@@ -5,7 +5,7 @@
 //! Heap allocation.
 
 use crate::{
-    backtrace, common, debug, drivers, info,
+    backtrace, common, debug, info, memory,
     memory::{Address, Virtual},
     synchronization,
     synchronization::IRQSafeNullLock,
@@ -137,7 +137,7 @@ pub fn kernel_init_heap_allocator() {
         return;
     }
 
-    let region = drivers::raspberrypi::memory::mmu::virt_heap_region();
+    let region = memory::mmu::virt_heap_region();
 
     KERNEL_HEAP_ALLOCATOR.inner.lock(|inner| unsafe {
         inner.init(region.start_addr().as_usize() as *mut u8, region.size())

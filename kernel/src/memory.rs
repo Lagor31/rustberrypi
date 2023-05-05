@@ -6,12 +6,138 @@
 pub mod heap_alloc;
 pub mod map;
 pub mod mmu;
-use crate::{common, drivers};
+use crate::{common, memory};
 use core::{
     fmt,
     marker::PhantomData,
     ops::{Add, Sub},
 };
+
+use core::cell::UnsafeCell;
+
+use self::mmu::types::PageAddress;
+
+//--------------------------------------------------------------------------------------------------
+// Private Definitions
+//--------------------------------------------------------------------------------------------------
+
+// Symbols from the linker script.
+extern "Rust" {
+    static __code_start: UnsafeCell<()>;
+    static __code_end_exclusive: UnsafeCell<()>;
+
+    static __data_start: UnsafeCell<()>;
+    static __data_end_exclusive: UnsafeCell<()>;
+
+    static __heap_start: UnsafeCell<()>;
+    static __heap_end_exclusive: UnsafeCell<()>;
+
+    static __mmio_remap_start: UnsafeCell<()>;
+    static __mmio_remap_end_exclusive: UnsafeCell<()>;
+
+    static __boot_core_stack_start: UnsafeCell<()>;
+    static __boot_core_stack_end_exclusive: UnsafeCell<()>;
+}
+
+//--------------------------------------------------------------------------------------------------
+// Private Code
+//--------------------------------------------------------------------------------------------------
+
+/// Start page address of the code segment.
+///
+/// # Safety
+///
+/// - Value is provided by the linker script and must be trusted as-is.
+#[inline(always)]
+fn virt_code_start() -> PageAddress<Virtual> {
+    PageAddress::from(unsafe { __code_start.get() as usize })
+}
+
+/// Size of the code segment.
+///
+/// # Safety
+///
+/// - Value is provided by the linker script and must be trusted as-is.
+#[inline(always)]
+fn code_size() -> usize {
+    unsafe { (__code_end_exclusive.get() as usize) - (__code_start.get() as usize) }
+}
+
+/// Start page address of the data segment.
+#[inline(always)]
+fn virt_data_start() -> PageAddress<Virtual> {
+    PageAddress::from(unsafe { __data_start.get() as usize })
+}
+
+/// Size of the data segment.
+///
+/// # Safety
+///
+/// - Value is provided by the linker script and must be trusted as-is.
+#[inline(always)]
+fn data_size() -> usize {
+    unsafe { (__data_end_exclusive.get() as usize) - (__data_start.get() as usize) }
+}
+
+/// Start page address of the heap segment.
+#[inline(always)]
+fn virt_heap_start() -> PageAddress<Virtual> {
+    PageAddress::from(unsafe { __heap_start.get() as usize })
+}
+
+/// Size of the heap segment.
+///
+/// # Safety
+///
+/// - Value is provided by the linker script and must be trusted as-is.
+#[inline(always)]
+fn heap_size() -> usize {
+    unsafe { (__heap_end_exclusive.get() as usize) - (__heap_start.get() as usize) }
+}
+
+/// Start page address of the MMIO remap reservation.
+///
+/// # Safety
+///
+/// - Value is provided by the linker script and must be trusted as-is.
+#[inline(always)]
+fn virt_mmio_remap_start() -> PageAddress<Virtual> {
+    PageAddress::from(unsafe { __mmio_remap_start.get() as usize })
+}
+
+/// Size of the MMIO remap reservation.
+///
+/// # Safety
+///
+/// - Value is provided by the linker script and must be trusted as-is.
+#[inline(always)]
+fn mmio_remap_size() -> usize {
+    unsafe { (__mmio_remap_end_exclusive.get() as usize) - (__mmio_remap_start.get() as usize) }
+}
+
+/// Start page address of the boot core's stack.
+#[inline(always)]
+fn virt_boot_core_stack_start() -> PageAddress<Virtual> {
+    PageAddress::from(unsafe { __boot_core_stack_start.get() as usize })
+}
+
+/// Size of the boot core's stack.
+#[inline(always)]
+fn boot_core_stack_size() -> usize {
+    unsafe {
+        (__boot_core_stack_end_exclusive.get() as usize) - (__boot_core_stack_start.get() as usize)
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+// Public Code
+//--------------------------------------------------------------------------------------------------
+
+/// Exclusive end address of the physical address space.
+#[inline(always)]
+pub fn phys_addr_space_end_exclusive_addr() -> PageAddress<Physical> {
+    PageAddress::from(crate::memory::map::END)
+}
 
 //--------------------------------------------------------------------------------------------------
 // Public Definitions
@@ -59,10 +185,7 @@ impl<ATYPE: AddressType> Address<ATYPE> {
     /// Align down to page size.
     #[must_use]
     pub const fn align_down_page(self) -> Self {
-        let aligned = common::align_down(
-            self.value,
-            drivers::raspberrypi::memory::mmu::KernelGranule::SIZE,
-        );
+        let aligned = common::align_down(self.value, memory::mmu::KernelGranule::SIZE);
 
         Self::new(aligned)
     }
@@ -70,25 +193,19 @@ impl<ATYPE: AddressType> Address<ATYPE> {
     /// Align up to page size.
     #[must_use]
     pub const fn align_up_page(self) -> Self {
-        let aligned = common::align_up(
-            self.value,
-            drivers::raspberrypi::memory::mmu::KernelGranule::SIZE,
-        );
+        let aligned = common::align_up(self.value, memory::mmu::KernelGranule::SIZE);
 
         Self::new(aligned)
     }
 
     /// Checks if the address is page aligned.
     pub const fn is_page_aligned(&self) -> bool {
-        common::is_aligned(
-            self.value,
-            drivers::raspberrypi::memory::mmu::KernelGranule::SIZE,
-        )
+        common::is_aligned(self.value, memory::mmu::KernelGranule::SIZE)
     }
 
     /// Return the address' offset into the corresponding page.
     pub const fn offset_into_page(&self) -> usize {
-        self.value & drivers::raspberrypi::memory::mmu::KernelGranule::MASK
+        self.value & memory::mmu::KernelGranule::MASK
     }
 }
 
@@ -131,12 +248,12 @@ impl<ATYPE: AddressType> Sub<Address<ATYPE>> for Address<ATYPE> {
 impl Address<Virtual> {
     /// Checks if the address is part of the boot core stack region.
     pub fn is_valid_stack_addr(&self) -> bool {
-        drivers::raspberrypi::memory::mmu::virt_boot_core_stack_region().contains(*self)
+        memory::mmu::virt_boot_core_stack_region().contains(*self)
     }
 
     /// Checks if the address is part of the kernel code region.
     pub fn is_valid_code_addr(&self) -> bool {
-        drivers::raspberrypi::memory::mmu::virt_code_region().contains(*self)
+        memory::mmu::virt_code_region().contains(*self)
     }
 }
 

@@ -8,7 +8,7 @@ use super::{
     AccessPermissions, Address, AttributeFields, MMIODescriptor, MemAttributes, MemoryRegion,
     Physical, Virtual,
 };
-use crate::{common, drivers, info, synchronization, synchronization::InitStateLock};
+use crate::{common, info, memory, synchronization, synchronization::InitStateLock};
 use alloc::{vec, vec::Vec};
 
 //--------------------------------------------------------------------------------------------------
@@ -118,7 +118,7 @@ impl MappingRecord {
         info!("      -------------------------------------------------------------------------------------------------------------------------------------------");
 
         for i in self.inner.iter() {
-            let size = i.num_pages * drivers::raspberrypi::memory::mmu::KernelGranule::SIZE;
+            let size = i.num_pages * memory::mmu::KernelGranule::SIZE;
             let virt_start = i.virt_start_addr;
             let virt_end_inclusive = virt_start + (size - 1);
             let phys_start = i.phys_start_addr;
