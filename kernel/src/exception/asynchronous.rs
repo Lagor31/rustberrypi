@@ -68,8 +68,17 @@ pub use arch_asynchronous::{
 //--------------------------------------------------------------------------------------------------
 
 /// Interrupt number as defined by the BSP.
-pub type IRQNumber = drivers::exception::asynchronous::IRQNumber;
+pub type IRQNumber = drivers::gicv2::IRQNumber;
 
+/// IRQ MAP
+pub mod irq_map {
+    use super::drivers::IRQNumber;
+
+    /// The non-secure physical timer IRQ number.
+    pub const ARM_NS_PHYSICAL_TIMER: IRQNumber = IRQNumber::new(30);
+    /// UART
+    pub const PL011_UART: IRQNumber = IRQNumber::new(153);
+}
 /// Interrupt descriptor.
 #[derive(Copy, Clone)]
 pub struct IRQHandlerDescriptor<T>

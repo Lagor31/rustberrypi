@@ -88,7 +88,7 @@ impl<ATYPE: AddressType> PageAddress<ATYPE> {
 
         let delta = count
             .unsigned_abs()
-            .checked_mul(drivers::memory::mmu::KernelGranule::SIZE)?;
+            .checked_mul(drivers::raspberrypi::memory::mmu::KernelGranule::SIZE)?;
         let result = if count.is_positive() {
             self.inner.as_usize().checked_add(delta)?
         } else {
@@ -104,7 +104,7 @@ impl<ATYPE: AddressType> PageAddress<ATYPE> {
 impl<ATYPE: AddressType> From<usize> for PageAddress<ATYPE> {
     fn from(addr: usize) -> Self {
         assert!(
-            common::is_aligned(addr, drivers::memory::mmu::KernelGranule::SIZE),
+            common::is_aligned(addr, drivers::raspberrypi::memory::mmu::KernelGranule::SIZE),
             "Input usize not page aligned"
         );
 
@@ -131,7 +131,7 @@ impl<ATYPE: AddressType> Step for PageAddress<ATYPE> {
         // Since start <= end, do unchecked arithmetic.
         Some(
             (end.inner.as_usize() - start.inner.as_usize())
-                >> drivers::memory::mmu::KernelGranule::SHIFT,
+                >> drivers::raspberrypi::memory::mmu::KernelGranule::SHIFT,
         )
     }
 

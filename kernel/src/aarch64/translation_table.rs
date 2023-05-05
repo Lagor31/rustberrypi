@@ -318,7 +318,7 @@ impl<const NUM_TABLES: usize, const START_FROM_TOP: bool>
     /// Create an instance.
     #[allow(clippy::assertions_on_constants)]
     const fn _new(for_precompute: bool) -> Self {
-        assert!(drivers::memory::mmu::KernelGranule::SIZE == Granule64KiB::SIZE);
+        assert!(drivers::raspberrypi::memory::mmu::KernelGranule::SIZE == Granule64KiB::SIZE);
 
         // Can't have a zero-sized address space.
         assert!(NUM_TABLES > 0);
@@ -434,7 +434,7 @@ impl<const NUM_TABLES: usize, const START_FROM_TOP: bool>
         }
 
         if phys_region.end_exclusive_page_addr()
-            > drivers::memory::phys_addr_space_end_exclusive_addr()
+            > drivers::raspberrypi::memory::phys_addr_space_end_exclusive_addr()
         {
             return Err("Tried to map outside of physical address space");
         }

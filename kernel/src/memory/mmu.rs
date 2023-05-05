@@ -94,7 +94,7 @@ unsafe fn kernel_map_at_unchecked(
     phys_region: &MemoryRegion<Physical>,
     attr: &AttributeFields,
 ) -> Result<(), &'static str> {
-    drivers::memory::mmu::kernel_translation_tables()
+    drivers::raspberrypi::memory::mmu::kernel_translation_tables()
         .write(|tables| tables.map_at(virt_region, phys_region, attr))?;
 
     kernel_add_mapping_record(name, virt_region, phys_region, attr);
@@ -108,7 +108,7 @@ unsafe fn kernel_map_at_unchecked(
 fn try_kernel_virt_addr_to_phys_addr(
     virt_addr: Address<Virtual>,
 ) -> Result<Address<Physical>, &'static str> {
-    drivers::memory::mmu::kernel_translation_tables()
+    drivers::raspberrypi::memory::mmu::kernel_translation_tables()
         .read(|tables| tables.try_virt_addr_to_phys_addr(virt_addr))
 }
 
@@ -162,7 +162,7 @@ impl<const AS_SIZE: usize> AddressSpace<AS_SIZE> {
 /// Query the BSP for the reserved virtual addresses for MMIO remapping and initialize the kernel's
 /// MMIO VA allocator with it.
 pub fn kernel_init_mmio_va_allocator() {
-    let region = drivers::memory::mmu::virt_mmio_remap_region();
+    let region = drivers::raspberrypi::memory::mmu::virt_mmio_remap_region();
 
     page_alloc::kernel_mmio_va_allocator().lock(|allocator| allocator.init(region));
 }
@@ -229,7 +229,7 @@ pub unsafe fn kernel_map_mmio(
 pub fn try_kernel_virt_page_addr_to_phys_page_addr(
     virt_page_addr: PageAddress<Virtual>,
 ) -> Result<PageAddress<Physical>, &'static str> {
-    drivers::memory::mmu::kernel_translation_tables()
+    drivers::raspberrypi::memory::mmu::kernel_translation_tables()
         .read(|tables| tables.try_virt_page_addr_to_phys_page_addr(virt_page_addr))
 }
 
@@ -239,7 +239,7 @@ pub fn try_kernel_virt_page_addr_to_phys_page_addr(
 pub fn try_kernel_page_attributes(
     virt_page_addr: PageAddress<Virtual>,
 ) -> Result<AttributeFields, &'static str> {
-    drivers::memory::mmu::kernel_translation_tables()
+    drivers::raspberrypi::memory::mmu::kernel_translation_tables()
         .read(|tables| tables.try_page_attributes(virt_page_addr))
 }
 

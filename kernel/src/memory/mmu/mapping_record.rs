@@ -118,7 +118,7 @@ impl MappingRecord {
         info!("      -------------------------------------------------------------------------------------------------------------------------------------------");
 
         for i in self.inner.iter() {
-            let size = i.num_pages * drivers::memory::mmu::KernelGranule::SIZE;
+            let size = i.num_pages * drivers::raspberrypi::memory::mmu::KernelGranule::SIZE;
             let virt_start = i.virt_start_addr;
             let virt_end_inclusive = virt_start + (size - 1);
             let phys_start = i.phys_start_addr;

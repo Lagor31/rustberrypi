@@ -16,186 +16,152 @@ pub use bcm2xxx_pl011_uart::*;
 
 mod common;
 
-mod raspberrypi {
-    pub mod driver {
-        // SPDX-License-Identifier: MIT OR Apache-2.0
-        //
-        // Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+use super::{exception, memory::map::mmio};
+use crate::{
+    console, driver as generic_driver,
+    drivers::{GICv2, PL011Uart},
+    exception::{self as generic_exception},
+    memory,
+    memory::mmu::MMIODescriptor,
+};
+use core::{
+    mem::MaybeUninit,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
-        //! BSP driver support.
+//--------------------------------------------------------------------------------------------------
+// Global instances
+//--------------------------------------------------------------------------------------------------
 
-        use super::{exception, memory::map::mmio};
-        use crate::{
-            console, driver as generic_driver,
-            drivers::{GICv2, PL011Uart, GPIO},
-            exception::{self as generic_exception},
-            memory,
-            memory::mmu::MMIODescriptor,
-        };
-        use core::{
-            mem::MaybeUninit,
-            sync::atomic::{AtomicBool, Ordering},
-        };
+static mut PL011_UART: MaybeUninit<PL011Uart> = MaybeUninit::uninit();
+static mut GPIO: MaybeUninit<GPIO> = MaybeUninit::uninit();
 
-        //--------------------------------------------------------------------------------------------------
-        // Global instances
-        //--------------------------------------------------------------------------------------------------
+static mut INTERRUPT_CONTROLLER: MaybeUninit<GICv2> = MaybeUninit::uninit();
 
-        static mut PL011_UART: MaybeUninit<PL011Uart> = MaybeUninit::uninit();
-        static mut GPIO: MaybeUninit<GPIO> = MaybeUninit::uninit();
+//--------------------------------------------------------------------------------------------------
+// Private Code
+//--------------------------------------------------------------------------------------------------
 
-        static mut INTERRUPT_CONTROLLER: MaybeUninit<GICv2> = MaybeUninit::uninit();
+/// This must be called only after successful init of the memory subsystem.
+unsafe fn instantiate_uart() -> Result<(), &'static str> {
+    let mmio_descriptor = MMIODescriptor::new(mmio::PL011_UART_START, mmio::PL011_UART_SIZE);
+    let virt_addr = memory::mmu::kernel_map_mmio(PL011Uart::COMPATIBLE, &mmio_descriptor)?;
 
-        //--------------------------------------------------------------------------------------------------
-        // Private Code
-        //--------------------------------------------------------------------------------------------------
+    PL011_UART.write(PL011Uart::new(virt_addr));
 
-        /// This must be called only after successful init of the memory subsystem.
-        unsafe fn instantiate_uart() -> Result<(), &'static str> {
-            let mmio_descriptor =
-                MMIODescriptor::new(mmio::PL011_UART_START, mmio::PL011_UART_SIZE);
-            let virt_addr = memory::mmu::kernel_map_mmio(PL011Uart::COMPATIBLE, &mmio_descriptor)?;
+    Ok(())
+}
 
-            PL011_UART.write(PL011Uart::new(virt_addr));
+/// This must be called only after successful init of the UART driver.
+unsafe fn post_init_uart() -> Result<(), &'static str> {
+    console::register_console(PL011_UART.assume_init_ref());
 
-            Ok(())
-        }
+    Ok(())
+}
 
-        /// This must be called only after successful init of the UART driver.
-        unsafe fn post_init_uart() -> Result<(), &'static str> {
-            console::register_console(PL011_UART.assume_init_ref());
+/// This must be called only after successful init of the memory subsystem.
+unsafe fn instantiate_gpio() -> Result<(), &'static str> {
+    let mmio_descriptor = MMIODescriptor::new(mmio::GPIO_START, mmio::GPIO_SIZE);
+    let virt_addr = memory::mmu::kernel_map_mmio(GPIO::COMPATIBLE, &mmio_descriptor)?;
 
-            Ok(())
-        }
+    GPIO.write(GPIO::new(virt_addr));
 
-        /// This must be called only after successful init of the memory subsystem.
-        unsafe fn instantiate_gpio() -> Result<(), &'static str> {
-            let mmio_descriptor = MMIODescriptor::new(mmio::GPIO_START, mmio::GPIO_SIZE);
-            let virt_addr = memory::mmu::kernel_map_mmio(GPIO::COMPATIBLE, &mmio_descriptor)?;
+    Ok(())
+}
 
-            GPIO.write(GPIO::new(virt_addr));
+/// This must be called only after successful init of the GPIO driver.
+unsafe fn post_init_gpio() -> Result<(), &'static str> {
+    GPIO.assume_init_ref().map_pl011_uart();
+    Ok(())
+}
 
-            Ok(())
-        }
+/// This must be called only after successful init of the memory subsystem.
+unsafe fn instantiate_interrupt_controller() -> Result<(), &'static str> {
+    let gicd_mmio_descriptor = MMIODescriptor::new(mmio::GICD_START, mmio::GICD_SIZE);
+    let gicd_virt_addr = memory::mmu::kernel_map_mmio("GICv2 GICD", &gicd_mmio_descriptor)?;
 
-        /// This must be called only after successful init of the GPIO driver.
-        unsafe fn post_init_gpio() -> Result<(), &'static str> {
-            GPIO.assume_init_ref().map_pl011_uart();
-            Ok(())
-        }
+    let gicc_mmio_descriptor = MMIODescriptor::new(mmio::GICC_START, mmio::GICC_SIZE);
+    let gicc_virt_addr = memory::mmu::kernel_map_mmio("GICV2 GICC", &gicc_mmio_descriptor)?;
 
-        /// This must be called only after successful init of the memory subsystem.
-        unsafe fn instantiate_interrupt_controller() -> Result<(), &'static str> {
-            let gicd_mmio_descriptor = MMIODescriptor::new(mmio::GICD_START, mmio::GICD_SIZE);
-            let gicd_virt_addr = memory::mmu::kernel_map_mmio("GICv2 GICD", &gicd_mmio_descriptor)?;
+    INTERRUPT_CONTROLLER.write(GICv2::new(gicd_virt_addr, gicc_virt_addr));
 
-            let gicc_mmio_descriptor = MMIODescriptor::new(mmio::GICC_START, mmio::GICC_SIZE);
-            let gicc_virt_addr = memory::mmu::kernel_map_mmio("GICV2 GICC", &gicc_mmio_descriptor)?;
+    Ok(())
+}
 
-            INTERRUPT_CONTROLLER.write(GICv2::new(gicd_virt_addr, gicc_virt_addr));
+/// This must be called only after successful init of the interrupt controller driver.
+unsafe fn post_init_interrupt_controller() -> Result<(), &'static str> {
+    generic_exception::asynchronous::register_irq_manager(INTERRUPT_CONTROLLER.assume_init_ref());
 
-            Ok(())
-        }
+    Ok(())
+}
 
-        /// This must be called only after successful init of the interrupt controller driver.
-        unsafe fn post_init_interrupt_controller() -> Result<(), &'static str> {
-            generic_exception::asynchronous::register_irq_manager(
-                INTERRUPT_CONTROLLER.assume_init_ref(),
-            );
+/// Function needs to ensure that driver registration happens only after correct instantiation.
+unsafe fn driver_uart() -> Result<(), &'static str> {
+    instantiate_uart()?;
 
-            Ok(())
-        }
+    let uart_descriptor = generic_driver::DeviceDriverDescriptor::new(
+        PL011_UART.assume_init_ref(),
+        Some(post_init_uart),
+        Some(exception::asynchronous::irq_map::PL011_UART),
+    );
+    generic_driver::driver_manager().register_driver(uart_descriptor);
 
-        /// Function needs to ensure that driver registration happens only after correct instantiation.
-        unsafe fn driver_uart() -> Result<(), &'static str> {
-            instantiate_uart()?;
+    Ok(())
+}
 
-            let uart_descriptor = generic_driver::DeviceDriverDescriptor::new(
-                PL011_UART.assume_init_ref(),
-                Some(post_init_uart),
-                Some(exception::asynchronous::irq_map::PL011_UART),
-            );
-            generic_driver::driver_manager().register_driver(uart_descriptor);
+/// Function needs to ensure that driver registration happens only after correct instantiation.
+unsafe fn driver_gpio() -> Result<(), &'static str> {
+    instantiate_gpio()?;
 
-            Ok(())
-        }
+    let gpio_descriptor = generic_driver::DeviceDriverDescriptor::new(
+        GPIO.assume_init_ref(),
+        Some(post_init_gpio),
+        None,
+    );
+    generic_driver::driver_manager().register_driver(gpio_descriptor);
 
-        /// Function needs to ensure that driver registration happens only after correct instantiation.
-        unsafe fn driver_gpio() -> Result<(), &'static str> {
-            instantiate_gpio()?;
+    Ok(())
+}
 
-            let gpio_descriptor = generic_driver::DeviceDriverDescriptor::new(
-                GPIO.assume_init_ref(),
-                Some(post_init_gpio),
-                None,
-            );
-            generic_driver::driver_manager().register_driver(gpio_descriptor);
+/// Function needs to ensure that driver registration happens only after correct instantiation.
+unsafe fn driver_interrupt_controller() -> Result<(), &'static str> {
+    instantiate_interrupt_controller()?;
 
-            Ok(())
-        }
+    let interrupt_controller_descriptor = generic_driver::DeviceDriverDescriptor::new(
+        INTERRUPT_CONTROLLER.assume_init_ref(),
+        Some(post_init_interrupt_controller),
+        None,
+    );
+    generic_driver::driver_manager().register_driver(interrupt_controller_descriptor);
 
-        /// Function needs to ensure that driver registration happens only after correct instantiation.
-        unsafe fn driver_interrupt_controller() -> Result<(), &'static str> {
-            instantiate_interrupt_controller()?;
+    Ok(())
+}
 
-            let interrupt_controller_descriptor = generic_driver::DeviceDriverDescriptor::new(
-                INTERRUPT_CONTROLLER.assume_init_ref(),
-                Some(post_init_interrupt_controller),
-                None,
-            );
-            generic_driver::driver_manager().register_driver(interrupt_controller_descriptor);
+//--------------------------------------------------------------------------------------------------
+// Public Code
+//--------------------------------------------------------------------------------------------------
 
-            Ok(())
-        }
-
-        //--------------------------------------------------------------------------------------------------
-        // Public Code
-        //--------------------------------------------------------------------------------------------------
-
-        /// Initialize the driver subsystem.
-        ///
-        /// # Safety
-        ///
-        /// See child function calls.
-        pub unsafe fn init() -> Result<(), &'static str> {
-            static INIT_DONE: AtomicBool = AtomicBool::new(false);
-            if INIT_DONE.load(Ordering::Relaxed) {
-                return Err("Init already done");
-            }
-
-            driver_uart()?;
-            driver_gpio()?;
-            driver_interrupt_controller()?;
-
-            INIT_DONE.store(true, Ordering::Relaxed);
-            Ok(())
-        }
+/// Initialize the driver subsystem.
+///
+/// # Safety
+///
+/// See child function calls.
+pub unsafe fn init() -> Result<(), &'static str> {
+    static INIT_DONE: AtomicBool = AtomicBool::new(false);
+    if INIT_DONE.load(Ordering::Relaxed) {
+        return Err("Init already done");
     }
 
-    ///Doc for exception
-    pub mod exception {
-        /// Doc for async
-        pub mod asynchronous {
-            use crate::drivers;
+    driver_uart()?;
+    driver_gpio()?;
+    driver_interrupt_controller()?;
 
-            //--------------------------------------------------------------------------------------------------
-            // Public Definitions
-            //--------------------------------------------------------------------------------------------------
+    INIT_DONE.store(true, Ordering::Relaxed);
+    Ok(())
+}
 
-            /// Export for reuse in generic asynchronous.rs.
-            pub use drivers::IRQNumber;
-
-            /// The IRQ map.
-            pub mod irq_map {
-                use super::drivers::IRQNumber;
-
-                /// The non-secure physical timer IRQ number.
-                pub const ARM_NS_PHYSICAL_TIMER: IRQNumber = IRQNumber::new(30);
-
-                pub(in crate::drivers) const PL011_UART: IRQNumber = IRQNumber::new(153);
-            }
-        }
-    }
+/// Doc
+pub mod raspberrypi {
 
     pub mod memory {
         // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -412,7 +378,7 @@ mod raspberrypi {
             }
         }
 
-        use crate::memory::{mmu::PageAddress, Address, Physical, Virtual};
+        use crate::memory::{mmu::PageAddress, Physical, Virtual};
         use core::cell::UnsafeCell;
 
         //--------------------------------------------------------------------------------------------------
@@ -435,37 +401,6 @@ mod raspberrypi {
 
             static __boot_core_stack_start: UnsafeCell<()>;
             static __boot_core_stack_end_exclusive: UnsafeCell<()>;
-        }
-
-        //--------------------------------------------------------------------------------------------------
-        // Public Definitions
-        //--------------------------------------------------------------------------------------------------
-
-        /// The board's physical memory map.
-        #[rustfmt::skip]
-        pub(super) mod map {
-            use super::*;
-        
-            /// Physical devices.
-            pub mod mmio {
-                use super::*;
-        
-                pub const GPIO_START:       Address<Physical> = Address::new(0xFE20_0000);
-                pub const GPIO_SIZE:        usize             =              0xA0;
-        
-                pub const PL011_UART_START: Address<Physical> = Address::new(0xFE20_1000);
-                pub const PL011_UART_SIZE:  usize             =              0x48;
-        
-                pub const GICD_START:       Address<Physical> = Address::new(0xFF84_1000);
-                pub const GICD_SIZE:        usize             =              0x824;
-        
-                pub const GICC_START:       Address<Physical> = Address::new(0xFF84_2000);
-                pub const GICC_SIZE:        usize             =              0x14;
-        
-                pub const END:              Address<Physical> = Address::new(0xFF85_0000);
-            }
-        
-            pub const END: Address<Physical> = mmio::END;
         }
 
         //--------------------------------------------------------------------------------------------------
@@ -568,7 +503,7 @@ mod raspberrypi {
         /// Exclusive end address of the physical address space.
         #[inline(always)]
         pub fn phys_addr_space_end_exclusive_addr() -> PageAddress<Physical> {
-            PageAddress::from(map::END)
+            PageAddress::from(crate::memory::map::END)
         }
     }
 

@@ -72,14 +72,14 @@ unsafe fn kernel_init() -> ! {
     }
 
     // Initialize the BSP driver subsystem.
-    if let Err(x) = drivers::driver::init() {
+    if let Err(x) = drivers::init() {
         panic!("Error initializing BSP driver subsystem: {}", x);
     }
 
     // Initialize all device drivers.
     driver::driver_manager().init_drivers_and_irqs();
 
-    drivers::memory::mmu::kernel_add_mapping_records_for_precomputed();
+    drivers::raspberrypi::memory::mmu::kernel_add_mapping_records_for_precomputed();
 
     // Unmask interrupts on the boot CPU core.
     exception::asynchronous::local_irq_unmask();

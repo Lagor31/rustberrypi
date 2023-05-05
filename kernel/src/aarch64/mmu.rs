@@ -82,7 +82,7 @@ impl MemoryManagementUnit {
     /// Configure various settings of stage 1 of the EL1 translation regime.
     #[inline(always)]
     fn configure_translation_control(&self) {
-        let t1sz = (64 - drivers::memory::mmu::KernelVirtAddrSpace::SIZE_SHIFT) as u64;
+        let t1sz = (64 - drivers::raspberrypi::memory::mmu::KernelVirtAddrSpace::SIZE_SHIFT) as u64;
 
         TCR_EL1.write(
             TCR_EL1::TBI1::Used
