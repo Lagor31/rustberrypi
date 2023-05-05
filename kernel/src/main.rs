@@ -22,6 +22,8 @@
 #![feature(trait_alias)]
 #![feature(unchecked_math)]
 
+use alloc::vec::Vec;
+
 extern crate alloc;
 
 mod panic_wait;
@@ -121,6 +123,18 @@ fn kernel_main() -> ! {
 
     info!("Kernel heap:");
     memory::heap_alloc::kernel_heap_allocator().print_usage();
+
+    {
+        let mut v = Vec::new();
+
+        for n in 1..20 {
+            v.push(Box::new(n));
+        }
+
+        for i in &v {
+            info!("{}", i);
+        }
+    }
 
     time::time_manager().set_timeout_once(Duration::from_secs(5), Box::new(|| info!("Once 5")));
     time::time_manager().set_timeout_once(Duration::from_secs(3), Box::new(|| info!("Once 2")));
