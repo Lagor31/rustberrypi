@@ -1,14 +1,14 @@
-use core::{arch::asm, cell::UnsafeCell};
+use core::{arch::asm, cell::UnsafeCell, time::Duration};
 
-use tock_registers::{
-    interfaces::{Readable, Writeable},
-    register_structs,
-    registers::ReadWrite,
-};
+use tock_registers::{interfaces::Writeable, register_structs, registers::ReadWrite};
 
 use crate::{
+    cpu::core_id,
     drivers::common::MMIODerefWrapper,
+    exception::{self},
+    info,
     memory::{Address, Virtual},
+    time::arch_time::spin_for,
 };
 
 register_structs! {
@@ -32,30 +32,61 @@ pub static CORES: Registers =
 extern "Rust" {
     static _start_secondary: UnsafeCell<()>;
 }
+
+#[no_mangle]
+unsafe fn kernel_init_secondary() -> ! {
+    exception::handling_init();
+
+    // Unmask interrupts on the boot CPU core.
+    //local_irq_unmask();
+    let core_id = core_id::<u64>();
+    loop {
+        spin_for(Duration::from_secs(core_id));
+        info!("Hi from core {}!", core_id);
+    }
+    //wait_forever();
+}
+
+#[no_mangle]
 pub unsafe fn start_core(core_id: u8) {
-    /*  info!(
-           "Core {} starting with function at address {}",
-           core_id,
-           _start_secondary.get() as u64
-       );
-    */
-    let addr = _start_secondary.get() as u64;
-    //   let fn_addr = (&func as *const _) as u64;
+    info!(
+        "Core {} starting with function at address {:#x}",
+        core_id,
+        _start_secondary.get() as u64
+    );
+
+    let mut addr = _start_secondary.get() as usize;
+
+    addr &= 0xFFFF_FFFF;
+    addr -= 0xBFF8_0000;
+
+    let mut core_wakeup_addr: u64 = 0xFFFF_FFFF_c18b_0000;
     match core_id {
-        1 => CORES.ONE.set(addr),
+        1 => {
+            CORES.ONE.set(addr as u64);
+            core_wakeup_addr += 0xE0;
+        }
+        2 => {
+            CORES.TWO.set(addr as u64);
+            core_wakeup_addr += 0xE8;
+        }
+        3 => {
+            CORES.THREE.set(addr as u64);
+            core_wakeup_addr += 0xF0;
+        }
         _ => panic!("Can't start other cores"),
     }
 
-    let _r = CORES.ONE.get();
-
-    const ADD: u64 = 0xFFFF_FFFF_c18b_0000 + 0xE0;
     unsafe {
         asm!(
             "dc civac, {arg}",
-            arg =  in(reg) ADD,
+            arg =  in(reg) core_wakeup_addr,
             options(nomem, nostack, preserves_flags)
         );
     }
+    aarch64_cpu::asm::barrier::dmb(aarch64_cpu::asm::barrier::SY);
+    aarch64_cpu::asm::barrier::isb(aarch64_cpu::asm::barrier::SY);
+    aarch64_cpu::asm::barrier::dsb(aarch64_cpu::asm::barrier::SY);
 
     aarch64_cpu::asm::sev();
 }

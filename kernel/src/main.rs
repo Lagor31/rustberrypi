@@ -22,6 +22,7 @@
 #![feature(trait_alias)]
 #![feature(unchecked_math)]
 #![feature(never_type)]
+
 use alloc::vec::Vec;
 
 use crate::smp::start_core;
@@ -68,8 +69,6 @@ pub fn version() -> &'static str {
 /// - Printing will not work until the respective driver's MMIO is remapped.
 #[no_mangle]
 unsafe fn kernel_init() -> ! {
-    start_core(1);
-
     exception::handling_init();
     memory::init();
 
@@ -148,5 +147,10 @@ fn kernel_main() -> ! {
      */
 
     info!("Echoing input now");
+    //spin_for(Duration::from_secs(3));
+    info!("Enabling other cores");
+    for i in 1..=3 {
+        unsafe { start_core(i) }
+    }
     cpu::wait_forever();
 }

@@ -10,7 +10,7 @@
 //! - <https://doc.rust-lang.org/stable/std/panic/fn.set_hook.html>
 
 #[path = "aarch64/time.rs"]
-mod arch_time;
+pub mod arch_time;
 
 use crate::{
     driver, exception,

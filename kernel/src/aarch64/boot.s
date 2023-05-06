@@ -105,15 +105,35 @@ _start:
 .global	_start
 
 
-.section ".init"
 _start_secondary:
 
-	// Only proceed on the boot core. Park it otherwise.
-	mrs	x1, MPIDR_EL1
-	and	x1, x1, {CONST_CORE_ID_MASK}
-	ldr	x2, BOOT_CORE_ID      // provided by bsp/__board_name__/cpu.rs
-	cmp	x1, x2
-	b.ne	.L_parking_loop2
+	ADR_REL	x4, ARCH_TIMER_COUNTER_FREQUENCY // provided by aarch64/time.rs
+	mrs	x5, CNTFRQ_EL0
+	cmp	x5, xzr
+	b.eq	.L_parking_loop2
+	str	w5, [x4]
+
+
+	mrs	x4, MPIDR_EL1
+	and	x4, x4, {CONST_CORE_ID_MASK}
+	mov x2, 4096
+	mul x2, x2, x4 
+
+	ldr	x0, PHYS_KERNEL_TABLES_BASE_ADDR // provided by bsp/__board_name__/memory/mmu.rs
+
+	ADR_REL x1, __boot_core_stack_end_exclusive
+	
+	sub x1, x1, x2 
+	mov	sp, x1
+
+	ADR_ABS	x3, __boot_core_stack_end_exclusive
+	sub x3, x3, x2
+	mov x1, x3
+	
+	ADR_ABS	x2, kernel_init_secondary
+
+	ADR_REL x3, _start_rust_secondary
+	br	x3
 
 
 .L_parking_loop2:

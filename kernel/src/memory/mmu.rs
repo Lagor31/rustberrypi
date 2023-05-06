@@ -5,7 +5,7 @@
 //! Memory Management Unit.
 
 #[path = "../aarch64/mmu.rs"]
-mod arch_mmu;
+pub mod arch_mmu;
 
 mod mapping_record;
 mod page_alloc;

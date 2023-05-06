@@ -33,7 +33,10 @@ ENTRY(__rpi_phys_binary_load_addr)
  */
 PHDRS
 {
-    segment_code            PT_LOAD FLAGS(5);
+    /*
+    Code must be writable or we won't be able to set breakpoints from GDB
+    */
+    segment_code            PT_LOAD FLAGS(7);
     segment_data            PT_LOAD FLAGS(6);
     segment_heap            PT_LOAD FLAGS(6);
     segment_boot_core_stack PT_LOAD FLAGS(6);
