@@ -28,6 +28,7 @@ use alloc::vec::Vec;
 use crate::smp::start_core;
 
 extern crate alloc;
+extern crate spin;
 
 mod panic_wait;
 mod synchronization;
@@ -152,5 +153,9 @@ fn kernel_main() -> ! {
     for i in 1..=3 {
         unsafe { start_core(i) }
     }
-    cpu::wait_forever();
+
+    loop {
+        //spin_for(Duration::from_micros(100));
+        info!("CORE 0!!!");
+    }
 }

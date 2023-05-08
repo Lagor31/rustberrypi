@@ -18,6 +18,8 @@ use crate::{
     synchronization::IRQSafeNullLock,
 };
 use core::fmt;
+
+use spin::mutex::SpinMutex;
 use tock_registers::{
     interfaces::{Readable, Writeable},
     register_bitfields, register_structs,
@@ -233,7 +235,7 @@ struct PL011UartInner {
 
 /// Representation of the UART.
 pub struct PL011Uart {
-    inner: IRQSafeNullLock<PL011UartInner>,
+    inner: IRQSafeNullLock<SpinMutex<PL011UartInner>>,
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -408,7 +410,7 @@ impl PL011Uart {
     /// - The user must ensure to provide a correct MMIO start address.
     pub const unsafe fn new(mmio_start_addr: Address<Virtual>) -> Self {
         Self {
-            inner: IRQSafeNullLock::new(PL011UartInner::new(mmio_start_addr)),
+            inner: IRQSafeNullLock::new(SpinMutex::new(PL011UartInner::new(mmio_start_addr))),
         }
     }
 }
@@ -426,8 +428,7 @@ impl driver::interface::DeviceDriver for PL011Uart {
     }
 
     unsafe fn init(&self) -> Result<(), &'static str> {
-        self.inner.lock(|inner| inner.init());
-
+        self.inner.lock(|inner| inner.lock().init());
         Ok(())
     }
 
@@ -450,36 +451,42 @@ impl console::interface::Write for PL011Uart {
     /// Passthrough of `args` to the `core::fmt::Write` implementation, but guarded by a Mutex to
     /// serialize access.
     fn write_char(&self, c: char) {
-        self.inner.lock(|inner| inner.write_char(c));
+        self.inner.lock(|inner| inner.lock().write_char(c));
     }
 
     fn write_array(&self, a: &[char]) {
-        self.inner.lock(|inner| inner.write_array(a));
+        self.inner.lock(|inner| inner.lock().write_array(a));
     }
 
     fn write_fmt(&self, args: core::fmt::Arguments) -> fmt::Result {
         // Fully qualified syntax for the call to `core::fmt::Write::write_fmt()` to increase
         // readability.
-        self.inner.lock(|inner| fmt::Write::write_fmt(inner, args))
+
+        self.inner
+            .lock(|inner| fmt::Write::write_fmt(&mut *inner.lock(), args))
     }
 
     fn flush(&self) {
         // Spin until TX FIFO empty is set.
-        self.inner.lock(|inner| inner.flush());
+        self.inner.lock(|inner| inner.lock().flush());
     }
 }
 
 impl console::interface::Read for PL011Uart {
     fn read_char(&self) -> char {
-        self.inner
-            .lock(|inner| inner.read_char_converting(BlockingMode::Blocking).unwrap())
+        self.inner.lock(|inner| {
+            inner
+                .lock()
+                .read_char_converting(BlockingMode::Blocking)
+                .unwrap()
+        })
     }
 
     fn clear_rx(&self) {
         // Read from the RX FIFO until it is indicating empty.
         while self
             .inner
-            .lock(|inner| inner.read_char_converting(BlockingMode::NonBlocking))
+            .lock(|inner| inner.lock().read_char_converting(BlockingMode::NonBlocking))
             .is_some()
         {}
     }
@@ -487,11 +494,11 @@ impl console::interface::Read for PL011Uart {
 
 impl console::interface::Statistics for PL011Uart {
     fn chars_written(&self) -> usize {
-        self.inner.lock(|inner| inner.chars_written)
+        self.inner.lock(|inner| inner.lock().chars_written)
     }
 
     fn chars_read(&self) -> usize {
-        self.inner.lock(|inner| inner.chars_read)
+        self.inner.lock(|inner| inner.lock().chars_read)
     }
 }
 
@@ -500,16 +507,17 @@ impl console::interface::All for PL011Uart {}
 impl exception::asynchronous::interface::IRQHandler for PL011Uart {
     fn handle(&self) -> Result<(), &'static str> {
         self.inner.lock(|inner| {
-            let pending = inner.registers.MIS.extract();
+            let mut l = inner.lock();
+            let pending = l.registers.MIS.extract();
 
             // Clear all pending IRQs.
-            inner.registers.ICR.write(ICR::ALL::CLEAR);
+            l.registers.ICR.write(ICR::ALL::CLEAR);
 
             // Check for any kind of RX interrupt.
             if pending.matches_any(MIS::RXMIS::SET + MIS::RTMIS::SET) {
                 // Echo any received characters.
-                while let Some(c) = inner.read_char_converting(BlockingMode::NonBlocking) {
-                    inner.write_char(c)
+                while let Some(c) = l.read_char_converting(BlockingMode::NonBlocking) {
+                    l.write_char(c)
                 }
             }
         });

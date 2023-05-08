@@ -11,9 +11,14 @@
 //!
 //! crate::cpu::boot::arch_boot
 
-use crate::{memory, memory::Address};
+use crate::{
+    memory,
+    memory::{heap_alloc::kernel_heap_allocator as HEAP, Address},
+};
 use aarch64_cpu::{asm, registers::*};
 use core::{
+    alloc::GlobalAlloc,
+    alloc::Layout as SIZE,
     arch::global_asm,
     sync::atomic::{compiler_fence, Ordering},
 };
@@ -122,6 +127,7 @@ pub unsafe extern "C" fn _start_rust_secondary(
     virt_boot_core_stack_end_exclusive_addr: u64,
     virt_kernel_init_addr: u64,
 ) -> ! {
+    let _stack_pointer = HEAP().alloc(SIZE::new::<[u64; 4096]>()) as u64;
     prepare_el2_to_el1_transition(
         virt_boot_core_stack_end_exclusive_addr,
         virt_kernel_init_addr,

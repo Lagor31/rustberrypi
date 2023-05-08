@@ -1,4 +1,4 @@
-use core::{arch::asm, cell::UnsafeCell, time::Duration};
+use core::{arch::asm, cell::UnsafeCell};
 
 use tock_registers::{interfaces::Writeable, register_structs, registers::ReadWrite};
 
@@ -8,7 +8,6 @@ use crate::{
     exception::{self},
     info,
     memory::{Address, Virtual},
-    time::arch_time::spin_for,
 };
 
 register_structs! {
@@ -41,8 +40,8 @@ unsafe fn kernel_init_secondary() -> ! {
     //local_irq_unmask();
     let core_id = core_id::<u64>();
     loop {
-        spin_for(Duration::from_secs(core_id));
         info!("Hi from core {}!", core_id);
+        //spin_for(Duration::from_micros(core_id * 10));
     }
     //wait_forever();
 }
