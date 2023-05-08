@@ -143,20 +143,38 @@ fn kernel_main() -> ! {
     //spin_for(Duration::from_secs(3));
 
     use alloc::collections::BTreeMap;
-    let mut movie_reviews = BTreeMap::new();
-    movie_reviews.insert(33, "Deals with real issues in the workplace.");
-    movie_reviews.insert(2, "Deals with real issues in the workplace.");
-    movie_reviews.insert(5, "Deals with real issues in the workplace.");
-    movie_reviews.insert(88, "Deals with real issues in the workplace.");
-    movie_reviews.insert(3, "Deals with real issues in the workplace.");
+    let mut treemap = BTreeMap::new();
+    treemap.insert(33, "trentatre");
+    treemap.insert(2, "due");
+    treemap.insert(5, "cinque");
+    treemap.insert(88, "ottootto");
+    treemap.insert(3, "tre");
 
-    info!("first: {}", movie_reviews.first_key_value().unwrap().0);
+    info!(
+        "first K={} V={}",
+        treemap.first_key_value().unwrap().0,
+        treemap.first_key_value().unwrap().1
+    );
+
+    info!(
+        "last K={} V={}",
+        treemap.last_key_value().unwrap().0,
+        treemap.last_key_value().unwrap().1
+    );
+
+    info!("Whole thing");
+    for r in treemap {
+        info!(
+            "
+         K={} V={}",
+            r.0, r.1
+        );
+    }
+
     info!("Enabling other cores");
-
     (1..=3).for_each(|i| unsafe { start_core(i) });
 
     loop {
-        //spin_for(Duration::from_micros(100));
         use crate::cpu::core_id;
         let core_id = core_id::<u64>();
         let mut small_rng = SmallRng::seed_from_u64(core_id);
@@ -166,7 +184,6 @@ fn kernel_main() -> ! {
                 core_id,
                 small_rng.next_u64() % 1000
             );
-            //spin_for(Duration::from_micros(core_id * 10));
         }
     }
 }
