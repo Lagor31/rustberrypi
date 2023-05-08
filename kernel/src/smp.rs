@@ -1,5 +1,6 @@
 use core::{arch::asm, cell::UnsafeCell};
 
+use rand::{rngs::SmallRng, RngCore, SeedableRng};
 use tock_registers::{interfaces::Writeable, register_structs, registers::ReadWrite};
 
 use crate::{
@@ -39,8 +40,13 @@ unsafe fn kernel_init_secondary() -> ! {
     // Unmask interrupts on the boot CPU core.
     //local_irq_unmask();
     let core_id = core_id::<u64>();
+    let mut small_rng = SmallRng::seed_from_u64(core_id);
     loop {
-        info!("Hi from core {}!", core_id);
+        info!(
+            "Hi from core {} with RNG: {:#x}",
+            core_id,
+            small_rng.next_u64() % 1000
+        );
         //spin_for(Duration::from_micros(core_id * 10));
     }
     //wait_forever();

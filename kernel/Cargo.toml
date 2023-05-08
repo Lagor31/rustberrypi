@@ -22,6 +22,7 @@ tock-registers = { version = "0.8.x", default-features = false, features = ["reg
 
 aarch64-cpu = { version = "9.x.x" }
 spin = {version ="0.9", features= ["spin_mutex"]}
+rand = {version="0.8", features=["small_rng"], default-features = false}
 
 # Disable unit tests for the kernel binary.
 [[bin]]

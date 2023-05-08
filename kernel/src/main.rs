@@ -24,10 +24,14 @@
 #![feature(never_type)]
 
 use alloc::vec::Vec;
+use rand::rngs::SmallRng;
+use rand::RngCore;
+use rand::SeedableRng;
 
 use crate::smp::start_core;
 
 extern crate alloc;
+extern crate rand;
 extern crate spin;
 
 mod panic_wait;
@@ -156,6 +160,16 @@ fn kernel_main() -> ! {
 
     loop {
         //spin_for(Duration::from_micros(100));
-        info!("CORE 0!!!");
+        use crate::cpu::core_id;
+        let core_id = core_id::<u64>();
+        let mut small_rng = SmallRng::seed_from_u64(core_id);
+        loop {
+            info!(
+                "Hi from core {} with RNG: {:#x}",
+                core_id,
+                small_rng.next_u64() % 1000
+            );
+            //spin_for(Duration::from_micros(core_id * 10));
+        }
     }
 }
