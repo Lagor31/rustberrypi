@@ -23,17 +23,19 @@
 #![feature(unchecked_math)]
 #![feature(never_type)]
 
-use alloc::vec::Vec;
-use rand::rngs::SmallRng;
+use rand::{rngs::SmallRng, RngCore, SeedableRng};
+
+/* use rand::rngs::SmallRng;
 use rand::RngCore;
 use rand::SeedableRng;
+use crate::smp::start_core;
 
+ */
 use crate::smp::start_core;
 
 extern crate alloc;
 extern crate rand;
 extern crate spin;
-
 mod panic_wait;
 mod synchronization;
 
@@ -104,8 +106,6 @@ unsafe fn kernel_init() -> ! {
 
 /// The main function running after the early init.
 fn kernel_main() -> ! {
-    use alloc::boxed::Box;
-
     info!("{}", version());
     info!("Booting on: {}", board::board_name());
 
@@ -132,18 +132,6 @@ fn kernel_main() -> ! {
     info!("Kernel heap:");
     memory::heap_alloc::kernel_heap_allocator().print_usage();
 
-    {
-        let mut v = Vec::new();
-
-        for n in 1..20 {
-            v.push(Box::new(n));
-        }
-
-        for i in &v {
-            info!("{}", i);
-        }
-    }
-
     /*
     time::time_manager().set_timeout_once(Duration::from_secs(5), Box::new(|| info!("Once 5")));
     time::time_manager().set_timeout_once(Duration::from_secs(3), Box::new(|| info!("Once 2")));
@@ -153,10 +141,19 @@ fn kernel_main() -> ! {
 
     info!("Echoing input now");
     //spin_for(Duration::from_secs(3));
+
+    use alloc::collections::BTreeMap;
+    let mut movie_reviews = BTreeMap::new();
+    movie_reviews.insert(33, "Deals with real issues in the workplace.");
+    movie_reviews.insert(2, "Deals with real issues in the workplace.");
+    movie_reviews.insert(5, "Deals with real issues in the workplace.");
+    movie_reviews.insert(88, "Deals with real issues in the workplace.");
+    movie_reviews.insert(3, "Deals with real issues in the workplace.");
+
+    info!("first: {}", movie_reviews.first_key_value().unwrap().0);
     info!("Enabling other cores");
-    for i in 1..=3 {
-        unsafe { start_core(i) }
-    }
+
+    (1..=3).for_each(|i| unsafe { start_core(i) });
 
     loop {
         //spin_for(Duration::from_micros(100));
