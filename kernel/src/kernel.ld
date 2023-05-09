@@ -118,6 +118,7 @@ SECTIONS
     ***********************************************************************************************/
     .boot_core_stack (NOLOAD) : AT(__rpi_phys_dram_start_addr)
     {
+        __core_activation_address = .;
         __boot_core_stack_start = .;         /*   ^             */
                                              /*   | stack       */
         . += __rpi_phys_binary_load_addr;    /*   | growth      */

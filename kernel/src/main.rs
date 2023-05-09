@@ -35,6 +35,7 @@ use crate::smp::start_core;
 
  */
 use crate::{
+    board::version,
     cpu::{core_id, wait_forever},
     smp::start_core,
 };
@@ -59,18 +60,6 @@ pub mod smp;
 pub mod state;
 pub mod symbols;
 pub mod time;
-//--------------------------------------------------------------------------------------------------
-// Public Code
-//--------------------------------------------------------------------------------------------------
-
-/// Version string.
-pub fn version() -> &'static str {
-    concat!(
-        env!("CARGO_PKG_NAME"),
-        " version ",
-        env!("CARGO_PKG_VERSION")
-    )
-}
 
 /// Early init code.
 ///
@@ -180,19 +169,22 @@ fn kernel_main() -> ! {
     info!("Enabling other cores");
     (1..=3).for_each(|i| unsafe { start_core(i) });
 
-    let cid: u64 = core_id::<u64>() + 1;
+    state::state_manager().transition_to_multi_core_main();
+
+    let cid: u64 = core_id::<u64>();
 
     time::time_manager().set_timeout_periodic(
-        Duration::from_secs(cid),
-        Box::new(|| {
+        Duration::from_secs(cid + 10),
+        Box::new(|_ec| {
             let cid = core_id::<u64>() + 1;
             let mut small_rng = SmallRng::seed_from_u64(cid);
-
             info!(
-                "Hi from core {} with RNG: {:#x}",
+                "Hi from core {} with RNG: {:#x}\n\n{}",
                 core_id::<u64>(),
-                small_rng.next_u64() % 1000
-            )
+                small_rng.next_u64() % 1000,
+                _ec
+            );
+            _ec.gpr[0] += 2;
         }),
     );
     wait_forever();

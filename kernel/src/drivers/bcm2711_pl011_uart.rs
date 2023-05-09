@@ -12,7 +12,7 @@
 use crate::{
     console, cpu, driver,
     drivers::common::MMIODerefWrapper,
-    exception::{self, asynchronous::IRQNumber},
+    exception::{self, arch_exception::ExceptionContext, asynchronous::IRQNumber},
     memory::{Address, Virtual},
     synchronization,
     synchronization::IRQSafeNullLock,
@@ -505,7 +505,7 @@ impl console::interface::Statistics for PL011Uart {
 impl console::interface::All for PL011Uart {}
 
 impl exception::asynchronous::interface::IRQHandler for PL011Uart {
-    fn handle(&self) -> Result<(), &'static str> {
+    fn handle(&self, _e: &mut ExceptionContext) -> Result<(), &'static str> {
         self.inner.lock(|inner| {
             let mut l = inner.lock();
             let pending = l.registers.MIS.extract();

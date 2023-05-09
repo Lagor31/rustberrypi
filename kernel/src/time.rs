@@ -10,19 +10,27 @@
 //! - <https://doc.rust-lang.org/stable/std/panic/fn.set_hook.html>
 
 #[path = "aarch64/time.rs"]
-pub mod arch_time;
+mod arch_time;
 
 use crate::{
     driver, exception,
-    exception::asynchronous::IRQNumber,
+    exception::{arch_exception::ExceptionContext, asynchronous::IRQNumber},
     synchronization::{interface::Mutex, IRQSafeNullLock},
     warn,
 };
+
 use alloc::{boxed::Box, vec::Vec};
 use core::{
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
+
+static TIME_MANAGER: TimeManager = TimeManager::new();
+
+/// Return a reference to the global TimeManager.
+pub fn time_manager() -> &'static TimeManager {
+    &TIME_MANAGER
+}
 
 //--------------------------------------------------------------------------------------------------
 // Private Definitions
@@ -34,33 +42,6 @@ struct Timeout {
     callback: TimeoutCallback,
 }
 
-struct OrderedTimeoutQueue {
-    // Can be replaced with a BinaryHeap once it's new() becomes const.
-    inner: Vec<Timeout>,
-}
-
-//--------------------------------------------------------------------------------------------------
-// Public Definitions
-//--------------------------------------------------------------------------------------------------
-
-/// The callback type used by timer IRQs.
-pub type TimeoutCallback = Box<dyn Fn() + Send>;
-
-/// Provides time management functions.
-pub struct TimeManager {
-    queue: IRQSafeNullLock<OrderedTimeoutQueue>,
-}
-
-//--------------------------------------------------------------------------------------------------
-// Global instances
-//--------------------------------------------------------------------------------------------------
-
-static TIME_MANAGER: TimeManager = TimeManager::new();
-
-//--------------------------------------------------------------------------------------------------
-// Private Code
-//--------------------------------------------------------------------------------------------------
-
 impl Timeout {
     pub fn is_periodic(&self) -> bool {
         self.period.is_some()
@@ -71,6 +52,11 @@ impl Timeout {
             self.due_time += delay;
         }
     }
+}
+
+struct OrderedTimeoutQueue {
+    // Can be replaced with a BinaryHeap once it's new() becomes const.
+    inner: Vec<Timeout>,
 }
 
 impl OrderedTimeoutQueue {
@@ -98,12 +84,15 @@ impl OrderedTimeoutQueue {
 }
 
 //--------------------------------------------------------------------------------------------------
-// Public Code
+// Public Definitions
 //--------------------------------------------------------------------------------------------------
 
-/// Return a reference to the global TimeManager.
-pub fn time_manager() -> &'static TimeManager {
-    &TIME_MANAGER
+/// The callback type used by timer IRQs.
+pub type TimeoutCallback = Box<dyn Fn(&mut ExceptionContext) + Send>;
+
+/// Provides time management functions.
+pub struct TimeManager {
+    queue: IRQSafeNullLock<OrderedTimeoutQueue>,
 }
 
 impl TimeManager {
@@ -166,25 +155,6 @@ impl TimeManager {
     }
 }
 
-/// Initialize the timer subsystem.
-pub fn init() -> Result<(), &'static str> {
-    static INIT_DONE: AtomicBool = AtomicBool::new(false);
-    if INIT_DONE.load(Ordering::Relaxed) {
-        return Err("Init already done");
-    }
-
-    let timer_descriptor =
-        driver::DeviceDriverDescriptor::new(time_manager(), None, Some(arch_time::timeout_irq()));
-    driver::driver_manager().register_driver(timer_descriptor);
-
-    INIT_DONE.store(true, Ordering::Relaxed);
-    Ok(())
-}
-
-//------------------------------------------------------------------------------
-// OS Interface Code
-//------------------------------------------------------------------------------
-
 impl driver::interface::DeviceDriver for TimeManager {
     type IRQNumberType = IRQNumber;
 
@@ -208,7 +178,7 @@ impl driver::interface::DeviceDriver for TimeManager {
 }
 
 impl exception::asynchronous::interface::IRQHandler for TimeManager {
-    fn handle(&self) -> Result<(), &'static str> {
+    fn handle(&self, e: &mut ExceptionContext) -> Result<(), &'static str> {
         arch_time::conclude_timeout_irq();
 
         let maybe_timeout: Option<Timeout> = self.queue.lock(|queue| {
@@ -216,7 +186,6 @@ impl exception::asynchronous::interface::IRQHandler for TimeManager {
             if next_due_time > self.uptime() {
                 return None;
             }
-
             let mut timeout = queue.pop().unwrap();
 
             // Refresh as early as possible to prevent drift.
@@ -238,7 +207,7 @@ impl exception::asynchronous::interface::IRQHandler for TimeManager {
         // Important: Call the callback while not holding any lock, because the callback might
         // attempt to modify data that is protected by a lock (in particular, the timeout queue
         // itself).
-        (timeout.callback)();
+        (timeout.callback)(e);
 
         self.queue.lock(|queue| {
             if timeout.is_periodic() {
@@ -259,4 +228,19 @@ impl exception::asynchronous::interface::IRQHandler for TimeManager {
 
         Ok(())
     }
+}
+
+/// Initialize the timer subsystem.
+pub fn init() -> Result<(), &'static str> {
+    static INIT_DONE: AtomicBool = AtomicBool::new(false);
+    if INIT_DONE.load(Ordering::Relaxed) {
+        return Err("Init already done");
+    }
+
+    let timer_descriptor =
+        driver::DeviceDriverDescriptor::new(time_manager(), None, Some(arch_time::timeout_irq()));
+    driver::driver_manager().register_driver(timer_descriptor);
+
+    INIT_DONE.store(true, Ordering::Relaxed);
+    Ok(())
 }

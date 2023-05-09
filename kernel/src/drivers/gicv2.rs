@@ -10,7 +10,7 @@ mod gicd;
 use crate::{
     cpu, driver,
     drivers::common::BoundedUsize,
-    exception,
+    exception::{self, arch_exception::ExceptionContext},
     memory::{Address, Virtual},
     synchronization,
     synchronization::InitStateLock,
@@ -123,6 +123,7 @@ impl exception::asynchronous::interface::IRQManager for GICv2 {
     fn handle_pending_irqs<'irq_context>(
         &'irq_context self,
         ic: &exception::asynchronous::IRQContext<'irq_context>,
+        e: &mut ExceptionContext,
     ) {
         // Extract the highest priority pending IRQ number from the Interrupt Acknowledge Register
         // (IAR).
@@ -139,7 +140,7 @@ impl exception::asynchronous::interface::IRQManager for GICv2 {
                 None => panic!("No handler registered for IRQ {}", irq_number),
                 Some(descriptor) => {
                     // Call the IRQ handler. Panics on failure.
-                    descriptor.handler().handle().expect("Error handling IRQ");
+                    descriptor.handler().handle(e).expect("Error handling IRQ");
                 }
             }
         });

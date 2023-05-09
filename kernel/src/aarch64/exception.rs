@@ -32,26 +32,26 @@ global_asm!(
 
 /// Wrapper structs for memory copies of registers.
 #[repr(transparent)]
-struct SpsrEL1(InMemoryRegister<u64, SPSR_EL1::Register>);
-struct EsrEL1(InMemoryRegister<u64, ESR_EL1::Register>);
+pub struct SpsrEL1(InMemoryRegister<u64, SPSR_EL1::Register>);
+pub struct EsrEL1(InMemoryRegister<u64, ESR_EL1::Register>);
 
 /// The exception context as it is stored on the stack on exception entry.
 #[repr(C)]
-struct ExceptionContext {
+pub struct ExceptionContext {
     /// General Purpose Registers.
-    gpr: [u64; 30],
+    pub gpr: [u64; 30],
 
     /// The link register, aka x30.
-    lr: u64,
+    pub lr: u64,
 
     /// Exception link register. The program counter at the time the exception happened.
-    elr_el1: u64,
+    pub elr_el1: u64,
 
     /// Saved program status.
-    spsr_el1: SpsrEL1,
+    pub spsr_el1: SpsrEL1,
 
     /// Exception syndrome register.
-    esr_el1: EsrEL1,
+    pub esr_el1: EsrEL1,
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -96,9 +96,9 @@ extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
 }
 
 #[no_mangle]
-extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
+extern "C" fn current_elx_irq(e: &mut ExceptionContext) {
     let token = unsafe { &exception::asynchronous::IRQContext::new() };
-    exception::asynchronous::irq_manager().handle_pending_irqs(token);
+    exception::asynchronous::irq_manager().handle_pending_irqs(token, e);
 }
 
 #[no_mangle]

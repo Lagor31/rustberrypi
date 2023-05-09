@@ -4,6 +4,8 @@
 
 //! Null IRQ Manager.
 
+use crate::exception::arch_exception::ExceptionContext;
+
 use super::{interface, IRQContext, IRQHandlerDescriptor};
 
 //--------------------------------------------------------------------------------------------------
@@ -36,7 +38,11 @@ impl interface::IRQManager for NullIRQManager {
         panic!("No IRQ Manager registered yet");
     }
 
-    fn handle_pending_irqs<'irq_context>(&'irq_context self, _ic: &IRQContext<'irq_context>) {
-        panic!("No IRQ Manager registered yet");
+    fn handle_pending_irqs<'irq_context>(
+        &'irq_context self,
+        _ic: &IRQContext<'irq_context>,
+        e: &mut ExceptionContext,
+    ) {
+        panic!("No IRQ Manager registered yet! {}", e);
     }
 }

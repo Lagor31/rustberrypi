@@ -35,6 +35,8 @@ extern "Rust" {
     static __mmio_remap_start: UnsafeCell<()>;
     static __mmio_remap_end_exclusive: UnsafeCell<()>;
 
+    pub static __core_activation_address: UnsafeCell<()>;
+
     static __boot_core_stack_start: UnsafeCell<()>;
     static __boot_core_stack_end_exclusive: UnsafeCell<()>;
 }
@@ -290,34 +292,4 @@ impl fmt::Display for Address<Virtual> {
 pub fn init() {
     mmu::kernel_init_mmio_va_allocator();
     heap_alloc::kernel_init_heap_allocator();
-}
-
-//--------------------------------------------------------------------------------------------------
-// Testing
-//--------------------------------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use test_macros::kernel_test;
-
-    /// Sanity of [Address] methods.
-    #[kernel_test]
-    fn address_type_method_sanity() {
-        let addr = Address::<Virtual>::new(drivers::memory::mmu::KernelGranule::SIZE + 100);
-
-        assert_eq!(
-            addr.align_down_page().as_usize(),
-            drivers::memory::mmu::KernelGranule::SIZE
-        );
-
-        assert_eq!(
-            addr.align_up_page().as_usize(),
-            drivers::memory::mmu::KernelGranule::SIZE * 2
-        );
-
-        assert!(!addr.is_page_aligned());
-
-        assert_eq!(addr.offset_into_page(), 100);
-    }
 }

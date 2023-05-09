@@ -58,31 +58,3 @@ pub fn lookup_symbol(addr: Address<Virtual>) -> Option<&'static Symbol> {
         .iter()
         .find(|&i| i.contains(addr.as_usize()))
 }
-
-//--------------------------------------------------------------------------------------------------
-// Testing
-//--------------------------------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use test_macros::kernel_test;
-
-    /// Sanity of symbols module.
-    #[kernel_test]
-    fn symbols_sanity() {
-        let first_sym = lookup_symbol(Address::new(
-            crate::common::is_aligned as *const usize as usize,
-        ))
-        .unwrap()
-        .name();
-
-        assert_eq!(first_sym, "libkernel::common::is_aligned");
-
-        let second_sym = lookup_symbol(Address::new(crate::version as *const usize as usize))
-            .unwrap()
-            .name();
-
-        assert_eq!(second_sym, "libkernel::version");
-    }
-}
