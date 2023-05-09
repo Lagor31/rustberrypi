@@ -23,6 +23,9 @@
 #![feature(unchecked_math)]
 #![feature(never_type)]
 
+use core::time::Duration;
+
+use alloc::boxed::Box;
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
 /* use rand::rngs::SmallRng;
@@ -31,7 +34,10 @@ use rand::SeedableRng;
 use crate::smp::start_core;
 
  */
-use crate::smp::start_core;
+use crate::{
+    cpu::{core_id, wait_forever},
+    smp::start_core,
+};
 
 extern crate alloc;
 extern crate rand;
@@ -174,7 +180,24 @@ fn kernel_main() -> ! {
     info!("Enabling other cores");
     (1..=3).for_each(|i| unsafe { start_core(i) });
 
-    loop {
+    let cid: u64 = core_id::<u64>() + 1;
+
+    time::time_manager().set_timeout_periodic(
+        Duration::from_secs(cid),
+        Box::new(|| {
+            let cid = core_id::<u64>() + 1;
+            let mut small_rng = SmallRng::seed_from_u64(cid);
+
+            info!(
+                "Hi from core {} with RNG: {:#x}",
+                core_id::<u64>(),
+                small_rng.next_u64() % 1000
+            )
+        }),
+    );
+    wait_forever();
+
+    /*     loop {
         use crate::cpu::core_id;
         let core_id = core_id::<u64>();
         let mut small_rng = SmallRng::seed_from_u64(core_id);
@@ -185,5 +208,5 @@ fn kernel_main() -> ! {
                 small_rng.next_u64() % 1000
             );
         }
-    }
+    } */
 }
