@@ -1,5 +1,6 @@
 use core::{arch::asm, cell::UnsafeCell, time::Duration};
 
+use aarch64_cpu::asm::barrier::{dmb, dsb, isb};
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
 use tock_registers::{interfaces::Writeable, register_structs, registers::ReadWrite};
 
@@ -8,7 +9,7 @@ use crate::{
     drivers::common::MMIODerefWrapper,
     exception::{self, asynchronous::local_irq_unmask},
     info,
-    memory::{Address, Virtual, __core_activation_address},
+    memory::{Address, Virtual, __core_activation_address, mmu},
     time::time_manager,
 };
 
@@ -62,31 +63,36 @@ unsafe fn kernel_init_secondary() -> ! {
 
 #[no_mangle]
 pub unsafe fn start_core(core_id: u8) {
-    let mut addr = _start_secondary.get() as usize;
+    let start_f_address = _start_secondary.get() as usize;
 
     info!(
         "Core {} starting with function at address {:#x}",
-        core_id, addr
+        core_id, start_f_address
     );
 
     let mut core_wakeup_addr: u64 = unsafe { __core_activation_address.get() as u64 } + 0xE0;
     info!("Core Wakeup addr: {:#x}", core_wakeup_addr);
     let cores: Registers = Registers::new(Address::<Virtual>::new(core_wakeup_addr as usize));
 
-    // TODO: Virtual to phys translation done by hand is ugly and error prone
-    addr &= 0xFFFF_FFFF;
-    addr -= 0xBFF8_0000;
+    let phaddr = mmu::try_kernel_virt_addr_to_phys_addr(Address::<Virtual>::new(start_f_address))
+        .unwrap()
+        .as_usize();
+
+    info!(
+        "PhysAddr of startSecondary({:#x}) => {:#x}",
+        start_f_address, phaddr
+    );
 
     match core_id {
         1 => {
-            cores.ONE.set(addr as u64);
+            cores.ONE.set(phaddr as u64);
         }
         2 => {
-            cores.TWO.set(addr as u64);
+            cores.TWO.set(phaddr as u64);
             core_wakeup_addr += 0x8;
         }
         3 => {
-            cores.THREE.set(addr as u64);
+            cores.THREE.set(phaddr as u64);
             core_wakeup_addr += 0x10;
         }
         _ => panic!("Can't start other cores"),
@@ -99,9 +105,9 @@ pub unsafe fn start_core(core_id: u8) {
             options(nomem, nostack, preserves_flags)
         );
     }
-    aarch64_cpu::asm::barrier::dmb(aarch64_cpu::asm::barrier::SY);
-    aarch64_cpu::asm::barrier::isb(aarch64_cpu::asm::barrier::SY);
-    aarch64_cpu::asm::barrier::dsb(aarch64_cpu::asm::barrier::SY);
+    dmb(aarch64_cpu::asm::barrier::SY);
+    isb(aarch64_cpu::asm::barrier::SY);
+    dsb(aarch64_cpu::asm::barrier::SY);
 
     aarch64_cpu::asm::sev();
 }

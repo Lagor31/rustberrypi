@@ -4,7 +4,7 @@
   "rust-analyzer.cargo.target": "aarch64-unknown-none-softfloat",
   "rust-analyzer.cargo.features": ["bsp_rpi4"],
   "workbench.colorCustomizations": {
-    "editor.selectionHighlightBackground": "#ff4400",
+    "editor.selectionHighlightBackground": "#bbff01",
   },
   "rust-analyzer.checkOnSave.allTargets": false,
   "rust-analyzer.checkOnSave.extraArgs": ["--lib", "--bins"],
