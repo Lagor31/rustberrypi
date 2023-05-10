@@ -188,3 +188,17 @@ __exception_restore_context:
 
 .size	__exception_restore_context, . - __exception_restore_context
 .type	__exception_restore_context, function
+
+//------------------------------------------------------------------------------
+// fn __switch_to()
+//------------------------------------------------------------------------------
+__switch_to:
+	//x0 = Current Thread Exception Context
+	//x1 = Next Thread Exception Context
+
+
+	// Saving current stuff into Current Thread
+ret
+
+.size	__switch_to, . - __switch_to
+.type	__switch_to, function

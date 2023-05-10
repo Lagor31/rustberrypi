@@ -26,6 +26,7 @@
 use core::time::Duration;
 
 use alloc::boxed::Box;
+use exception::arch_exception::ExceptionContext;
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
 /* use rand::rngs::SmallRng;
@@ -59,7 +60,12 @@ pub mod print;
 pub mod smp;
 pub mod state;
 pub mod symbols;
+pub mod thread;
 pub mod time;
+
+extern "C" {
+    fn __switch_to(current: &mut ExceptionContext, next: &mut ExceptionContext);
+}
 
 /// Early init code.
 ///
@@ -101,6 +107,10 @@ unsafe fn kernel_init() -> ! {
 
 /// The main function running after the early init.
 fn kernel_main() -> ! {
+    for _ in 0..10 {
+        info!("\n")
+    }
+
     info!("{}", version());
     info!("Booting on: {}", board::board_name());
 
@@ -169,12 +179,37 @@ fn kernel_main() -> ! {
     info!("Enabling other cores");
     (1..=3).for_each(|i| unsafe { start_core(i) });
 
+    let mut current_thread = thread::Thread::new(0x123456);
+
+    info!(
+        "Current Before Assembly PID({})\n{}",
+        current_thread.get_pid(),
+        current_thread.get_ex_context()
+    );
+
+    let mut new_thread = thread::Thread::new(0x123456);
+
+    info!(
+        "New PID: {}\n{}",
+        new_thread.get_pid(),
+        new_thread.get_ex_context()
+    );
+
+    unsafe {
+        __switch_to(current_thread.get_ex_context(), new_thread.get_ex_context());
+    }
+    info!(
+        "Current  After Assembly PID({})\n{}",
+        current_thread.get_pid(),
+        current_thread.get_ex_context()
+    );
+
     state::state_manager().transition_to_multi_core_main();
 
     let cid: u64 = core_id::<u64>();
 
     time::time_manager().set_timeout_periodic(
-        Duration::from_secs(cid + 10),
+        Duration::from_secs(cid + 2),
         Box::new(|_ec| {
             let cid = core_id::<u64>() + 1;
             let mut small_rng = SmallRng::seed_from_u64(cid);
@@ -188,17 +223,4 @@ fn kernel_main() -> ! {
         }),
     );
     wait_forever();
-
-    /*     loop {
-        use crate::cpu::core_id;
-        let core_id = core_id::<u64>();
-        let mut small_rng = SmallRng::seed_from_u64(core_id);
-        loop {
-            info!(
-                "Hi from core {} with RNG: {:#x}",
-                core_id,
-                small_rng.next_u64() % 1000
-            );
-        }
-    } */
 }

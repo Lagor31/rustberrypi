@@ -32,8 +32,9 @@ global_asm!(
 
 /// Wrapper structs for memory copies of registers.
 #[repr(transparent)]
-pub struct SpsrEL1(InMemoryRegister<u64, SPSR_EL1::Register>);
-pub struct EsrEL1(InMemoryRegister<u64, ESR_EL1::Register>);
+pub struct SpsrEL1(pub InMemoryRegister<u64, SPSR_EL1::Register>);
+#[repr(transparent)]
+pub struct EsrEL1(pub InMemoryRegister<u64, ESR_EL1::Register>);
 
 /// The exception context as it is stored on the stack on exception entry.
 #[repr(C)]
