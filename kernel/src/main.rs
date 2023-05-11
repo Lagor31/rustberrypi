@@ -22,12 +22,11 @@
 #![feature(trait_alias)]
 #![feature(unchecked_math)]
 #![feature(never_type)]
-
-use core::time::Duration;
+#![allow(dead_code, unused_imports)]
+use core::{cell::UnsafeCell, time::Duration};
 
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
-use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
 /* use rand::rngs::SmallRng;
 use rand::RngCore;
@@ -67,6 +66,9 @@ extern "C" {
     fn __switch_to(current: &mut ExceptionContext, next: &mut ExceptionContext);
 }
 
+extern "Rust" {
+    static __test_me: UnsafeCell<()>;
+}
 /// Early init code.
 ///
 /// When this code runs, virtual memory is already enabled.
@@ -147,7 +149,7 @@ fn kernel_main() -> ! {
     info!("Echoing input now");
     //spin_for(Duration::from_secs(3));
 
-    use alloc::collections::BTreeMap;
+    /*     use alloc::collections::BTreeMap;
     let mut treemap = BTreeMap::new();
     treemap.insert(33, "trentatre");
     treemap.insert(2, "due");
@@ -174,12 +176,43 @@ fn kernel_main() -> ! {
          K={} V={}",
             r.0, r.1
         );
-    }
+    } */
 
     info!("Enabling other cores");
     (1..=3).for_each(|i| unsafe { start_core(i) });
 
-    let mut current_thread = thread::Thread::new(0x123456);
+    state::state_manager().transition_to_multi_core_main();
+
+    let cid: u64 = core_id::<u64>();
+
+    time::time_manager().set_timeout_periodic(
+        Duration::from_secs(cid + 1),
+        Box::new(|_ec| {
+            let ep;
+            unsafe {
+                ep = __test_me.get() as u64;
+            };
+
+            let current_thread = thread::Thread::new(ep);
+
+            info!("Current Before Assembly PID({})", current_thread.get_pid());
+
+            let new_thread = thread::Thread::new(ep);
+
+            info!("New PID: {}", new_thread.get_pid());
+
+            /*  unsafe {
+                __switch_to(_ec, new_thread.get_ex_context());
+            } */
+        }),
+    );
+
+    let ep;
+    unsafe {
+        ep = __test_me.get() as u64;
+    };
+
+    let mut current_thread = thread::Thread::new(ep);
 
     info!(
         "Current Before Assembly PID({})\n{}",
@@ -187,40 +220,15 @@ fn kernel_main() -> ! {
         current_thread.get_ex_context()
     );
 
-    let mut new_thread = thread::Thread::new(0x123456);
+    let mut new_thread = thread::Thread::new(ep);
 
     info!(
         "New PID: {}\n{}",
         new_thread.get_pid(),
         new_thread.get_ex_context()
     );
-
     unsafe {
         __switch_to(current_thread.get_ex_context(), new_thread.get_ex_context());
     }
-    info!(
-        "Current  After Assembly PID({})\n{}",
-        current_thread.get_pid(),
-        current_thread.get_ex_context()
-    );
-
-    state::state_manager().transition_to_multi_core_main();
-
-    let cid: u64 = core_id::<u64>();
-
-    time::time_manager().set_timeout_periodic(
-        Duration::from_secs(cid + 2),
-        Box::new(|_ec| {
-            let cid = core_id::<u64>() + 1;
-            let mut small_rng = SmallRng::seed_from_u64(cid);
-            info!(
-                "Hi from core {} with RNG: {:#x}\n\n{}",
-                core_id::<u64>(),
-                small_rng.next_u64() % 1000,
-                _ec
-            );
-            _ec.gpr[0] += 2;
-        }),
-    );
     wait_forever();
 }

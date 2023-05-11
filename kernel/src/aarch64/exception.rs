@@ -11,7 +11,7 @@
 //!
 //! crate::exception::arch_exception
 
-use crate::{exception, memory, symbols};
+use crate::{exception, info, memory, symbols};
 use aarch64_cpu::{asm::barrier, registers::*};
 use core::{arch::global_asm, cell::UnsafeCell, fmt};
 use tock_registers::{
@@ -53,6 +53,9 @@ pub struct ExceptionContext {
 
     /// Exception syndrome register.
     pub esr_el1: EsrEL1,
+
+    pub sp_el0: u64,
+    pub _res_sp: u64,
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -73,13 +76,15 @@ fn default_exception_handler(exc: &ExceptionContext) {
 //------------------------------------------------------------------------------
 
 #[no_mangle]
-extern "C" fn current_el0_synchronous(_e: &mut ExceptionContext) {
-    panic!("Should not be here. Use of SP_EL0 in EL1 is not supported.")
+extern "C" fn current_el0_synchronous(e: &mut ExceptionContext) {
+    let token = unsafe { &exception::asynchronous::IRQContext::new() };
+    exception::asynchronous::irq_manager().handle_pending_irqs(token, e);
 }
 
 #[no_mangle]
-extern "C" fn current_el0_irq(_e: &mut ExceptionContext) {
-    panic!("Should not be here. Use of SP_EL0 in EL1 is not supported.")
+extern "C" fn current_el0_irq(e: &mut ExceptionContext) {
+    let token = unsafe { &exception::asynchronous::IRQContext::new() };
+    exception::asynchronous::irq_manager().handle_pending_irqs(token, e);
 }
 
 #[no_mangle]
@@ -112,18 +117,22 @@ extern "C" fn current_elx_serror(e: &mut ExceptionContext) {
 //------------------------------------------------------------------------------
 
 #[no_mangle]
-extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+extern "C" fn lower_aarch64_synchronous(_e: &mut ExceptionContext) {
+    panic!("lower_aarch64_synchronous");
+    //default_exception_handler(e);
 }
 
 #[no_mangle]
-extern "C" fn lower_aarch64_irq(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+extern "C" fn lower_aarch64_irq(_e: &mut ExceptionContext) {
+    panic!("lower_aarch64_irq");
+    //default_exception_handler(e);
 }
 
 #[no_mangle]
-extern "C" fn lower_aarch64_serror(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+extern "C" fn lower_aarch64_serror(_e: &mut ExceptionContext) {
+    panic!("lower_aarch64_serror");
+
+    //default_exception_handler(e);
 }
 
 //------------------------------------------------------------------------------
