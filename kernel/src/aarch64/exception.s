@@ -202,7 +202,6 @@ __switch_to:
 	//x0 = Current Thread Exception Context
 	//x1 = Next Thread Exception Context
 	// Saving current stuff into Current Thread
-
 	// Store all general purpose registers on the stack.
 	stp	x0,  x1,  [x0, #16 * 0]
 	stp	x2,  x3,  [x0, #16 * 1]
@@ -242,6 +241,8 @@ __switch_to:
 	msr	SPSR_EL1, x19
 	msr	ELR_EL1,  x20
 
+	msr SPSel, 1
+
 	ldp x0, x2, [x1, #16 * 17]
 	msr SP_EL0, x0
 
@@ -261,20 +262,8 @@ __switch_to:
 	ldp	x28, x29, [x1, #16 * 14]
 	ldp	x0,  x1,  [x1, #16 * 0]
 
-
-
 eret
 
 .size	__switch_to, . - __switch_to
 .type	__switch_to, function
 
-
-
-__test_me:
-
-	1:
-	add x1,x2,x3
-	wfe
-	b 1b
-.size	__test_me, . - __test_me
-.type	__test_me, function

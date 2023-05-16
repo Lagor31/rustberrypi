@@ -18,7 +18,6 @@ use core::cell::UnsafeCell;
 
 /// Synchronization interfaces.
 pub mod interface {
-
     /// Any object implementing this trait guarantees exclusive access to the data wrapped within
     /// the Mutex for the duration of the provided closure.
     pub trait Mutex {
@@ -52,20 +51,18 @@ pub mod interface {
 ///
 /// The lock will only be used as long as it is safe to do so, i.e. as long as the kernel is
 /// executing on a single core.
-pub struct IRQSafeNullLock<T>
-where
-    T: ?Sized,
-{
+pub struct IRQSafeNullLock<T> where T: ?Sized {
     data: UnsafeCell<T>,
+}
+
+pub struct SpinLock<T> where T: ?Sized {
+    data: SpinMutex<UnsafeCell<T>>,
 }
 
 /// A pseudo-lock that is RW during the single-core kernel init phase and RO afterwards.
 ///
 /// Intended to encapsulate data that is populated during kernel init when no concurrency exists.
-pub struct InitStateLock<T>
-where
-    T: ?Sized,
-{
+pub struct InitStateLock<T> where T: ?Sized {
     data: UnsafeCell<T>,
 }
 
@@ -85,6 +82,18 @@ impl<T> IRQSafeNullLock<T> {
     }
 }
 
+unsafe impl<T> Send for SpinLock<T> where T: ?Sized + Send {}
+unsafe impl<T> Sync for SpinLock<T> where T: ?Sized + Send {}
+
+impl<T> SpinLock<T> {
+    /// Create an instance.
+    pub const fn new(data: T) -> Self {
+        Self {
+            data: SpinMutex::new(UnsafeCell::new(data)),
+        }
+    }
+}
+
 unsafe impl<T> Send for InitStateLock<T> where T: ?Sized + Send {}
 unsafe impl<T> Sync for InitStateLock<T> where T: ?Sized + Send {}
 
@@ -97,10 +106,14 @@ impl<T> InitStateLock<T> {
     }
 }
 
+//use spin::mutex::SpinMutex;
+
+use spin::mutex::SpinMutex;
+
 //------------------------------------------------------------------------------
 // OS Interface Code
 //------------------------------------------------------------------------------
-use crate::{exception, state};
+use crate::{ exception, state };
 
 impl<T> interface::Mutex for IRQSafeNullLock<T> {
     type Data = T;
@@ -112,6 +125,20 @@ impl<T> interface::Mutex for IRQSafeNullLock<T> {
 
         // Execute the closure while IRQs are masked.
         exception::asynchronous::exec_with_irq_masked(|| f(data))
+    }
+}
+
+impl<T> interface::Mutex for SpinLock<T> {
+    type Data = T;
+
+    fn lock<'a, R>(&'a self, f: impl FnOnce(&'a mut Self::Data) -> R) -> R {
+        // In a real lock, there would be code encapsulating this line that ensures that this
+        // mutable reference will ever only be given out once at a time.
+        let lock = self.data.lock();
+        let data = unsafe { &mut *lock.get() };
+        //let data = unsafe { &mut lock.get_mut() };
+        // Execute the closure while IRQs are masked.
+        f(data)
     }
 }
 
