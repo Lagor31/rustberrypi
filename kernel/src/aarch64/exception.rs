@@ -77,8 +77,7 @@ fn default_exception_handler(exc: &ExceptionContext) {
 
 #[no_mangle]
 extern "C" fn current_el0_synchronous(e: &mut ExceptionContext) {
-    let token = unsafe { &exception::asynchronous::IRQContext::new() };
-    exception::asynchronous::irq_manager().handle_pending_irqs(token, e);
+    default_exception_handler(e);
 }
 
 #[no_mangle]
@@ -249,13 +248,11 @@ impl fmt::Display for EsrEL1 {
 /// Human readable print of the exception context.
 impl fmt::Display for ExceptionContext {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "{}", self.esr_el1)?;
+        writeln!(f, "ESR_EL1: {:#x}", self.esr_el1)?;
 
-        /*   if self.fault_address_valid() {
-            writeln!(f, "FAR_EL1: {:#018x}", FAR_EL1.get() as usize)?;
-        } */
+        writeln!(f, "FAR_EL1: {:#018x}", FAR_EL1.get() as usize)?;
 
-        writeln!(f, "{}", self.spsr_el1)?;
+        writeln!(f, "SPSR_EL1: {:#x}", self.spsr_el1)?;
         writeln!(f, "ELR_EL1: {:#018x}", self.elr_el1)?;
         writeln!(
             f,

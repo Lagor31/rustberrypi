@@ -169,7 +169,7 @@ __exception_restore_context:
 	msr	ELR_EL1,  x20
 
 	ldp x0, x1, [sp, #16 * 17]
-	mrs x0,  SP_EL0
+	msr SP_EL0, x0
 
 	ldp	x0,  x1,  [sp, #16 * 0]
 	ldp	x2,  x3,  [sp, #16 * 1]
@@ -219,42 +219,18 @@ __switch_to:
 	stp	x26, x27, [x0, #16 * 13]
 	stp	x28, x29, [x0, #16 * 14]
 
-	// Add the exception link register (ELR_EL1), saved program status (SPSR_EL1) and exception
-	// syndrome register (ESR_EL1).
-	
 	mov	x10,  lr
-	mrs	x11,  SPSR_EL1
-	mrs	x12,  ESR_EL1
-
 	stp	lr,  x10,  [x0, #16 * 15]
-	stp	x11,  x12,  [x0, #16 * 16]
 
 	mov x2, sp
 	stp x2, x2, [x0, #16 * 17] 
 
 
+	//Restore
 
-	ldr	w19,      [x1, #16 * 16]
 	ldp	lr,  x20, [x1, #16 * 15]
-
-	msr	SPSR_EL1, x19
-	msr	ELR_EL1,  x20
-
 	ldp x0, x2, [x1, #16 * 17]
-	
-
-	/*
-	if PSTATE.EL == EL0 then
-    	UNDEFINED;
-	elsif PSTATE.EL == EL1 then
-    if PSTATE.SP == '0' then   <------ We're in this branch, need to set SPSel to 1 in order to change the next thread's stack (SP_EL0)
-        UNDEFINED;
-    else
-        SP_EL0 = X[t];
-	 */
-	msr SpSel, 1
-	msr SP_EL0, x0
-	//msr SpSel, 0           <------- Gets set to 1 by the right value in SPSR_EL1 after eret
+	mov sp, x0
 
 	ldp	x2,  x3,  [x1, #16 * 1]
 	ldp	x4,  x5,  [x1, #16 * 2]
@@ -272,7 +248,7 @@ __switch_to:
 	ldp	x28, x29, [x1, #16 * 14]
 	ldp	x0,  x1,  [x1, #16 * 0]
 
-eret
+ret
 
 .size	__switch_to, . - __switch_to
 .type	__switch_to, function

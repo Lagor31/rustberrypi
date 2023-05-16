@@ -23,7 +23,7 @@
 #![feature(unchecked_math)]
 #![feature(never_type)]
 #![allow(dead_code, unused_imports)]
-use core::{cell::UnsafeCell, time::Duration};
+use core::{cell::UnsafeCell, panic, time::Duration};
 
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
@@ -38,7 +38,7 @@ use crate::smp::start_core;
 use crate::{
     board::version,
     cpu::{core_id, wait_forever},
-    exception::asynchronous::local_irq_mask_save,
+    exception::asynchronous::{local_irq_mask_save, local_irq_restore},
     scheduler::{CURRENT, RUNNING},
     smp::start_core,
     time::time_manager,
@@ -154,33 +154,53 @@ fn kernel_main() -> ! {
     info!("SP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
     info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
 
-    time::time_manager().set_timeout_periodic(
-        Duration::from_millis(5),
-        Box::new(|_ec| {
-            /*   info!("\nTimer interrupt!");
-            info!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
-            info!("\tSP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
-            info!("\tSP={:#x}", aarch64_cpu::registers::SP.get()); */
-
-            //time_manager().spin_for(Duration::from_millis(500));
-        }),
-    );
-
     let entry_point = thread as *const () as u64;
 
-    let mut wasted = thread::Thread::new(entry_point);
+    let mut _wasted = thread::Thread::new(entry_point);
 
     for _ in 0..10 {
         let new_thread = thread::Thread::new(entry_point);
         RUNNING.add(new_thread);
     }
 
-    let next_thread = RUNNING.next().expect("No next thread found!");
-    info!("Switching to thread {}...", next_thread.get_pid());
+    time::time_manager().set_timeout_periodic(
+        Duration::from_millis(2),
+        Box::new(|_ec| {
+            //info!("Timer interrupt!");
+
+            let cur_pid;
+            let _cur_thread;
+            unsafe {
+                if CURRENT.is_some() {
+                    cur_pid = CURRENT.unwrap();
+                    _cur_thread = RUNNING.get_by_pid(cur_pid).unwrap();
+                    store_context(_ec, _cur_thread.get_ex_context());
+                } else {
+                    info!("Current = None");
+                }
+            }
+            let next_thread: &mut thread::Thread = RUNNING.next().expect("No next thread found!");
+            unsafe {
+                CURRENT = Some(next_thread.get_pid());
+            }
+            store_context(next_thread.get_ex_context(), _ec);
+
+            /*    info!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
+            info!("\tSP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
+            info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
+
+            info!("[IRQ] Switching to thread {}...", next_thread.get_pid()); */
+
+            //time_manager().spin_for(Duration::from_millis(500));
+        }),
+    );
+
+    /*   let next_thread: &mut thread::Thread = RUNNING.next().expect("No next thread found!");
+    info!("[INIT] Switching to thread {}...", next_thread.get_pid());
     unsafe {
         CURRENT = Some(next_thread.get_pid());
         __switch_to(wasted.get_ex_context(), next_thread.get_ex_context());
-    }
+    } */
 
     wait_forever();
 }
@@ -188,7 +208,6 @@ fn kernel_main() -> ! {
 pub fn thread() {
     let mut c = 0;
     loop {
-        //let _saved = local_irq_mask_save();
         let my_pid;
         unsafe {
             my_pid = CURRENT.unwrap();
@@ -199,16 +218,15 @@ pub fn thread() {
         info!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
         info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
 
-        time_manager().spin_for(Duration::from_millis(2000));
         c += 1;
-
         let next_thread = RUNNING.next().expect("No next thread found!");
-        info!("Switching to thread {}...", next_thread.get_pid());
+        //info!("[THREAD] Switching to thread {}...", next_thread.get_pid());
         unsafe {
+            let _my_thread = RUNNING.get_by_pid(my_pid).unwrap();
             CURRENT = Some(next_thread.get_pid());
-            let my_thread = RUNNING.get_by_pid(my_pid).unwrap();
-            __switch_to(my_thread.get_ex_context(), next_thread.get_ex_context());
+            __switch_to(_my_thread.get_ex_context(), next_thread.get_ex_context());
         }
+        time_manager().spin_for(Duration::from_millis(1000));
     }
 }
 
@@ -216,12 +234,11 @@ pub fn wait_thread() {
     wait_forever();
 }
 
-/* pub fn store_context(s: &mut ExceptionContext, d: &mut ExceptionContext) {
+pub fn store_context(s: &mut ExceptionContext, d: &mut ExceptionContext) {
     d.elr_el1 = s.elr_el1;
-    //TODO: d.esr_el1 = s.esr_el1;
+    d.esr_el1 = s.esr_el1;
     d.gpr = s.gpr;
     d.lr = s.lr;
     d.sp_el0 = s.sp_el0;
-    //TODO: d.spsr_el1 = s.spsr_el1;
+    d.spsr_el1 = s.spsr_el1;
 }
- */
