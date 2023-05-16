@@ -8,7 +8,7 @@ use crate::{
     backtrace, common, debug, info, memory,
     memory::{Address, Virtual},
     synchronization,
-    synchronization::IRQSafeNullLock,
+    synchronization::IRQSafeLock,
     warn,
 };
 use alloc::alloc::{GlobalAlloc, Layout};
@@ -21,7 +21,7 @@ use linked_list_allocator::Heap as LinkedListHeap;
 
 /// A heap allocator that can be lazyily initialized.
 pub struct HeapAllocator {
-    inner: IRQSafeNullLock<LinkedListHeap>,
+    inner: IRQSafeLock<LinkedListHeap>,
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -76,7 +76,7 @@ impl HeapAllocator {
     /// Create an instance.
     pub const fn new() -> Self {
         Self {
-            inner: IRQSafeNullLock::new(LinkedListHeap::empty()),
+            inner: IRQSafeLock::new(LinkedListHeap::empty()),
         }
     }
 

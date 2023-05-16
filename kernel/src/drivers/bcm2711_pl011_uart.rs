@@ -15,9 +15,10 @@ use crate::{
     exception::{self, arch_exception::ExceptionContext, asynchronous::IRQNumber},
     memory::{Address, Virtual},
     synchronization,
-    synchronization::IRQSafeNullLock,
+    synchronization::IRQSafeLock,
+    time::time_manager,
 };
-use core::fmt;
+use core::{fmt, time::Duration};
 
 use spin::mutex::SpinMutex;
 use tock_registers::{
@@ -235,7 +236,7 @@ struct PL011UartInner {
 
 /// Representation of the UART.
 pub struct PL011Uart {
-    inner: IRQSafeNullLock<SpinMutex<PL011UartInner>>,
+    inner: IRQSafeLock<SpinMutex<PL011UartInner>>,
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -410,7 +411,7 @@ impl PL011Uart {
     /// - The user must ensure to provide a correct MMIO start address.
     pub const unsafe fn new(mmio_start_addr: Address<Virtual>) -> Self {
         Self {
-            inner: IRQSafeNullLock::new(SpinMutex::new(PL011UartInner::new(mmio_start_addr))),
+            inner: IRQSafeLock::new(SpinMutex::new(PL011UartInner::new(mmio_start_addr))),
         }
     }
 }

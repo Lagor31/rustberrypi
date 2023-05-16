@@ -1,7 +1,7 @@
-use core::{ cell::UnsafeCell, borrow::BorrowMut };
+use core::{borrow::BorrowMut, cell::UnsafeCell};
 
-use alloc::collections::LinkedList;
 use alloc::collections::linked_list::Iter;
+use alloc::collections::LinkedList;
 use rand::rngs::SmallRng;
 use rand::RngCore;
 use rand::SeedableRng;
@@ -9,15 +9,21 @@ use rand::SeedableRng;
 // Create small, cheap to initialize and fast RNG with a random seed.
 // The randomness is supplied by the operating system.
 use alloc::{
-    collections::{ BTreeMap, btree_map::{ IterMut, ValuesMut } },
     borrow::ToOwned,
     boxed::Box,
+    collections::{
+        btree_map::{IterMut, ValuesMut},
+        BTreeMap,
+    },
 };
-use spin::{ mutex::SpinMutex, rwlock::RwLock };
+use spin::{mutex::SpinMutex, rwlock::RwLock};
 
-use crate::synchronization::IRQSafeNullLock;
+use crate::synchronization::IRQSafeLock;
 use crate::time::time_manager;
-use crate::{ thread::Thread, synchronization::{ SpinLock, interface::Mutex } };
+use crate::{
+    synchronization::{interface::Mutex, SpinLock},
+    thread::Thread,
+};
 
 type ThreadMap = LinkedList<Thread>;
 
@@ -70,5 +76,5 @@ impl ThreadQueue {
     }
 }
 
-pub static CURRENT: IRQSafeNullLock<Option<u64>> = IRQSafeNullLock::new(Option::None);
-pub static RUNNING: ThreadQueue = ThreadQueue::new();
+pub static CURRENT: Option<u64> = Option::None;
+pub static RUNNING: IRQSafeLock<LinkedList<Thread>> = IRQSafeLock::new(LinkedList::<Thread>::new());

@@ -27,6 +27,7 @@ use core::{cell::UnsafeCell, time::Duration};
 
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
+use tock_registers::interfaces::Readable;
 
 /* use rand::rngs::SmallRng;
 use rand::RngCore;
@@ -37,7 +38,9 @@ use crate::smp::start_core;
 use crate::{
     board::version,
     cpu::{core_id, wait_forever},
+    exception::asynchronous::local_irq_mask_save,
     smp::start_core,
+    time::time_manager,
 };
 
 extern crate alloc;
@@ -56,6 +59,7 @@ pub mod drivers;
 pub mod exception;
 pub mod memory;
 pub mod print;
+pub mod scheduler;
 pub mod smp;
 pub mod state;
 pub mod symbols;
@@ -138,97 +142,64 @@ fn kernel_main() -> ! {
 
     info!("Kernel heap:");
     memory::heap_alloc::kernel_heap_allocator().print_usage();
-
-    /*
-    time::time_manager().set_timeout_once(Duration::from_secs(5), Box::new(|| info!("Once 5")));
-    time::time_manager().set_timeout_once(Duration::from_secs(3), Box::new(|| info!("Once 2")));
-    time::time_manager()
-        .set_timeout_periodic(Duration::from_secs(1), Box::new(|| info!("Periodic 1 sec")));
-     */
-
     info!("Echoing input now");
-    //spin_for(Duration::from_secs(3));
 
-    /*     use alloc::collections::BTreeMap;
-    let mut treemap = BTreeMap::new();
-    treemap.insert(33, "trentatre");
-    treemap.insert(2, "due");
-    treemap.insert(5, "cinque");
-    treemap.insert(88, "ottootto");
-    treemap.insert(3, "tre");
-
-    info!(
-        "first K={} V={}",
-        treemap.first_key_value().unwrap().0,
-        treemap.first_key_value().unwrap().1
-    );
-
-    info!(
-        "last K={} V={}",
-        treemap.last_key_value().unwrap().0,
-        treemap.last_key_value().unwrap().1
-    );
-
-    info!("Whole thing");
-    for r in treemap {
-        info!(
-            "
-         K={} V={}",
-            r.0, r.1
-        );
-    } */
-
-    info!("Enabling other cores");
+    /*     info!("Enabling other cores");
     (1..=3).for_each(|i| unsafe { start_core(i) });
 
-    state::state_manager().transition_to_multi_core_main();
-
-    let cid: u64 = core_id::<u64>();
+    state::state_manager().transition_to_multi_core_main(); */
+    info!("Kernel Init:\n");
+    info!("SPSel={}", aarch64_cpu::registers::SPSel.get());
+    info!("SP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
+    info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
 
     time::time_manager().set_timeout_periodic(
-        Duration::from_secs(cid + 1),
+        Duration::from_millis(500),
         Box::new(|_ec| {
-            let ep;
-            unsafe {
-                ep = __test_me.get() as u64;
-            };
+            info!("\nTimer interrupt!");
+            info!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
+            info!("\tSP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
+            info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
 
-            let current_thread = thread::Thread::new(ep);
-
-            info!("Current Before Assembly PID({})", current_thread.get_pid());
-
-            let new_thread = thread::Thread::new(ep);
-
-            info!("New PID: {}", new_thread.get_pid());
-
-            /*  unsafe {
-                __switch_to(_ec, new_thread.get_ex_context());
-            } */
+            //time_manager().spin_for(Duration::from_millis(500));
         }),
     );
 
-    let ep;
+    let entry_point = thread as *const () as u64;
+
+    let mut wasted = thread::Thread::new(entry_point);
+    let mut new_thread = thread::Thread::new(entry_point);
+    info!("Switching to thread {}...", new_thread.get_pid());
     unsafe {
-        ep = __test_me.get() as u64;
-    };
-
-    let mut current_thread = thread::Thread::new(ep);
-
-    info!(
-        "Current Before Assembly PID({})\n{}",
-        current_thread.get_pid(),
-        current_thread.get_ex_context()
-    );
-
-    let mut new_thread = thread::Thread::new(ep);
-
-    info!(
-        "New PID: {}\n{}",
-        new_thread.get_pid(),
-        new_thread.get_ex_context()
-    );
-    unsafe {
-        __switch_to(current_thread.get_ex_context(), new_thread.get_ex_context());
+        __switch_to(wasted.get_ex_context(), new_thread.get_ex_context());
     }
+
     wait_forever();
 }
+
+pub fn thread() {
+    let mut c = 0;
+    loop {
+        //let _saved = local_irq_mask_save();
+        info!("\nHello from thread! C={}", c);
+        info!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
+        info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
+
+        time_manager().spin_for(Duration::from_millis(2000));
+        c += 1;
+    }
+}
+
+pub fn wait_thread() {
+    wait_forever();
+}
+
+/* pub fn store_context(s: &mut ExceptionContext, d: &mut ExceptionContext) {
+    d.elr_el1 = s.elr_el1;
+    //TODO: d.esr_el1 = s.esr_el1;
+    d.gpr = s.gpr;
+    d.lr = s.lr;
+    d.sp_el0 = s.sp_el0;
+    //TODO: d.spsr_el1 = s.spsr_el1;
+}
+ */

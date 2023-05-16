@@ -53,12 +53,8 @@ impl Thread {
             gpr: [0; 30],
             lr: entry_point,
             elr_el1: entry_point,
-            spsr_el1: SpsrEL1 {
-                0: InMemoryRegister::<u64, SPSR_EL1::Register>::new(spsr_el1_init),
-            },
-            esr_el1: EsrEL1 {
-                0: InMemoryRegister::<u64, ESR_EL1::Register>::new(0),
-            },
+            spsr_el1: spsr_el1_init,
+            esr_el1: 0,
             _res_sp: 0,
             sp_el0: ptr,
         }

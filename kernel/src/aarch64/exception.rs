@@ -49,10 +49,10 @@ pub struct ExceptionContext {
     pub elr_el1: u64,
 
     /// Saved program status.
-    pub spsr_el1: SpsrEL1,
+    pub spsr_el1: u64,
 
     /// Exception syndrome register.
-    pub esr_el1: EsrEL1,
+    pub esr_el1: u64,
 
     pub sp_el0: u64,
     pub _res_sp: u64,
@@ -220,7 +220,7 @@ impl fmt::Display for EsrEL1 {
     }
 }
 
-impl ExceptionContext {
+/* impl ExceptionContext {
     #[inline(always)]
     fn exception_class(&self) -> Option<ESR_EL1::EC::Value> {
         self.esr_el1.exception_class()
@@ -244,16 +244,16 @@ impl ExceptionContext {
             ),
         }
     }
-}
+} */
 
 /// Human readable print of the exception context.
 impl fmt::Display for ExceptionContext {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "{}", self.esr_el1)?;
 
-        if self.fault_address_valid() {
+        /*   if self.fault_address_valid() {
             writeln!(f, "FAR_EL1: {:#018x}", FAR_EL1.get() as usize)?;
-        }
+        } */
 
         writeln!(f, "{}", self.spsr_el1)?;
         writeln!(f, "ELR_EL1: {:#018x}", self.elr_el1)?;

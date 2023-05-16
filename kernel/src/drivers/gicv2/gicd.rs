@@ -11,7 +11,7 @@ use crate::{
     drivers::common::MMIODerefWrapper,
     memory::{Address, Virtual},
     state, synchronization,
-    synchronization::IRQSafeNullLock,
+    synchronization::IRQSafeLock,
 };
 use tock_registers::{
     interfaces::{Readable, Writeable},
@@ -82,7 +82,7 @@ type BankedRegisters = MMIODerefWrapper<BankedRegisterBlock>;
 /// Representation of the GIC Distributor.
 pub struct GICD {
     /// Access to shared registers is guarded with a lock.
-    shared_registers: IRQSafeNullLock<SharedRegisters>,
+    shared_registers: IRQSafeLock<SharedRegisters>,
 
     /// Access to banked registers is unguarded.
     banked_registers: BankedRegisters,
@@ -132,7 +132,7 @@ impl GICD {
     /// - The user must ensure to provide a correct MMIO start address.
     pub const unsafe fn new(mmio_start_addr: Address<Virtual>) -> Self {
         Self {
-            shared_registers: IRQSafeNullLock::new(SharedRegisters::new(mmio_start_addr)),
+            shared_registers: IRQSafeLock::new(SharedRegisters::new(mmio_start_addr)),
             banked_registers: BankedRegisters::new(mmio_start_addr),
         }
     }

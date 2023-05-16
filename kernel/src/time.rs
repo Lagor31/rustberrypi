@@ -15,7 +15,7 @@ mod arch_time;
 use crate::{
     driver, exception,
     exception::{arch_exception::ExceptionContext, asynchronous::IRQNumber},
-    synchronization::{interface::Mutex, IRQSafeNullLock},
+    synchronization::{interface::Mutex, IRQSafeLock},
     warn,
 };
 
@@ -92,7 +92,7 @@ pub type TimeoutCallback = Box<dyn Fn(&mut ExceptionContext) + Send>;
 
 /// Provides time management functions.
 pub struct TimeManager {
-    queue: IRQSafeNullLock<OrderedTimeoutQueue>,
+    queue: IRQSafeLock<OrderedTimeoutQueue>,
 }
 
 impl TimeManager {
@@ -102,7 +102,7 @@ impl TimeManager {
     /// Create an instance.
     pub const fn new() -> Self {
         Self {
-            queue: IRQSafeNullLock::new(OrderedTimeoutQueue::new()),
+            queue: IRQSafeLock::new(OrderedTimeoutQueue::new()),
         }
     }
 

@@ -7,7 +7,7 @@
 use super::MemoryRegion;
 use crate::{
     memory::{AddressType, Virtual},
-    synchronization::IRQSafeNullLock,
+    synchronization::IRQSafeLock,
     warn,
 };
 use core::num::NonZeroUsize;
@@ -25,15 +25,15 @@ pub struct PageAllocator<ATYPE: AddressType> {
 // Global instances
 //--------------------------------------------------------------------------------------------------
 
-static KERNEL_MMIO_VA_ALLOCATOR: IRQSafeNullLock<PageAllocator<Virtual>> =
-    IRQSafeNullLock::new(PageAllocator::new());
+static KERNEL_MMIO_VA_ALLOCATOR: IRQSafeLock<PageAllocator<Virtual>> =
+    IRQSafeLock::new(PageAllocator::new());
 
 //--------------------------------------------------------------------------------------------------
 // Public Code
 //--------------------------------------------------------------------------------------------------
 
 /// Return a reference to the kernel's MMIO virtual address allocator.
-pub fn kernel_mmio_va_allocator() -> &'static IRQSafeNullLock<PageAllocator<Virtual>> {
+pub fn kernel_mmio_va_allocator() -> &'static IRQSafeLock<PageAllocator<Virtual>> {
     &KERNEL_MMIO_VA_ALLOCATOR
 }
 

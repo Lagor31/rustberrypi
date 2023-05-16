@@ -10,7 +10,7 @@ use crate::{
     exception::asynchronous::IRQNumber,
     memory::{Address, Virtual},
     synchronization,
-    synchronization::IRQSafeNullLock,
+    synchronization::IRQSafeLock,
 };
 use tock_registers::{
     interfaces::{ReadWriteable, Writeable},
@@ -122,7 +122,7 @@ struct GPIOInner {
 
 /// Representation of the GPIO HW.
 pub struct GPIO {
-    inner: IRQSafeNullLock<GPIOInner>,
+    inner: IRQSafeLock<GPIOInner>,
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -178,7 +178,7 @@ impl GPIO {
     /// - The user must ensure to provide a correct MMIO start address.
     pub const unsafe fn new(mmio_start_addr: Address<Virtual>) -> Self {
         Self {
-            inner: IRQSafeNullLock::new(GPIOInner::new(mmio_start_addr)),
+            inner: IRQSafeLock::new(GPIOInner::new(mmio_start_addr)),
         }
     }
 

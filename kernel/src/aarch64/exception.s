@@ -241,8 +241,6 @@ __switch_to:
 	msr	SPSR_EL1, x19
 	msr	ELR_EL1,  x20
 
-	msr SPSel, 1
-
 	ldp x0, x2, [x1, #16 * 17]
 	msr SP_EL0, x0
 
