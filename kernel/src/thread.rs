@@ -17,7 +17,7 @@ pub struct Thread {
     context: ExceptionContext,
 }
 
-static PID: AtomicU64 = AtomicU64::new(1);
+static PID: AtomicU64 = AtomicU64::new(0);
 
 impl Thread {
     pub fn new(entry_point: u64) -> Self {

@@ -25,21 +25,21 @@ use crate::{
     thread::Thread,
 };
 
-type ThreadMap = LinkedList<Thread>;
+type ThreadMap = IRQSafeLock<LinkedList<Thread>>;
 
 pub struct ThreadQueue {
-    tm: SpinLock<ThreadMap>,
+    tl: IRQSafeLock<LinkedList<Thread>>,
 }
 
 impl ThreadQueue {
     const fn new() -> Self {
         Self {
-            tm: SpinLock::new(ThreadMap::new()),
+            tl: IRQSafeLock::new(LinkedList::new()),
         }
     }
 
     pub fn next(&self) -> Option<&mut Thread> {
-        self.tm.lock(|m| {
+        self.tl.lock(|m| {
             let mut r = SmallRng::seed_from_u64(time_manager().uptime().as_millis() as u64);
             let len = m.len() - 1;
             let r = (r.next_u64() as usize) % len;
@@ -53,15 +53,15 @@ impl ThreadQueue {
     }
 
     pub fn add(&self, t: Thread) {
-        self.tm.lock(|map| map.push_back(t));
+        self.tl.lock(|map| map.push_back(t));
     }
 
     pub fn pop(&self) -> Thread {
-        self.tm.lock(|map| map.pop_front().unwrap())
+        self.tl.lock(|map| map.pop_front().unwrap())
     }
 
     pub fn get_by_pid(&self, pid: u64) -> Option<&mut Thread> {
-        self.tm.lock(|m| {
+        self.tl.lock(|m| {
             for p in m.iter_mut() {
                 if p.get_pid() == pid {
                     return Some(p);
@@ -72,9 +72,9 @@ impl ThreadQueue {
     }
 
     pub fn iter(&self) -> Iter<'_, Thread> {
-        self.tm.lock(|map| map.iter())
+        self.tl.lock(|map| map.iter())
     }
 }
 
-pub static CURRENT: Option<u64> = Option::None;
-pub static RUNNING: IRQSafeLock<LinkedList<Thread>> = IRQSafeLock::new(LinkedList::<Thread>::new());
+pub static mut CURRENT: Option<u64> = Option::None;
+pub static RUNNING: ThreadQueue = ThreadQueue::new();

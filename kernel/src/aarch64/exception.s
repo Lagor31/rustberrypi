@@ -234,7 +234,6 @@ __switch_to:
 
 
 
-
 	ldr	w19,      [x1, #16 * 16]
 	ldp	lr,  x20, [x1, #16 * 15]
 
@@ -242,7 +241,20 @@ __switch_to:
 	msr	ELR_EL1,  x20
 
 	ldp x0, x2, [x1, #16 * 17]
+	
+
+	/*
+	if PSTATE.EL == EL0 then
+    	UNDEFINED;
+	elsif PSTATE.EL == EL1 then
+    if PSTATE.SP == '0' then   <------ We're in this branch, need to set SPSel to 1 in order to change the next thread's stack (SP_EL0)
+        UNDEFINED;
+    else
+        SP_EL0 = X[t];
+	 */
+	msr SpSel, 1
 	msr SP_EL0, x0
+	//msr SpSel, 0           <------- Gets set to 1 by the right value in SPSR_EL1 after eret
 
 	ldp	x2,  x3,  [x1, #16 * 1]
 	ldp	x4,  x5,  [x1, #16 * 2]
