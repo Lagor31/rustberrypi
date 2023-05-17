@@ -225,12 +225,17 @@ __switch_to:
 	mov x2, sp
 	stp x2, x2, [x0, #16 * 17] 
 
-
 	//Restore
 
 	ldp	lr,  x20, [x1, #16 * 15]
+	msr ELR_EL1, x20 
+
 	ldp x0, x2, [x1, #16 * 17]
 	mov sp, x0
+	//msr SP_EL0, x0 
+
+	ldp x0, x2, [x1, #16 * 16]
+	msr SPSR_EL1, x0
 
 	ldp	x2,  x3,  [x1, #16 * 1]
 	ldp	x4,  x5,  [x1, #16 * 2]
@@ -248,7 +253,7 @@ __switch_to:
 	ldp	x28, x29, [x1, #16 * 14]
 	ldp	x0,  x1,  [x1, #16 * 0]
 
-ret
+eret
 
 .size	__switch_to, . - __switch_to
 .type	__switch_to, function

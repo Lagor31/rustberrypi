@@ -1,4 +1,4 @@
-use core::{ borrow::BorrowMut, cell::UnsafeCell };
+use core::{borrow::BorrowMut, cell::UnsafeCell};
 
 use alloc::collections::linked_list::Iter;
 use alloc::collections::LinkedList;
@@ -11,14 +11,21 @@ use rand::SeedableRng;
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
-    collections::{ btree_map::{ IterMut, ValuesMut }, BTreeMap },
+    collections::{
+        btree_map::{IterMut, ValuesMut},
+        BTreeMap,
+    },
 };
-use spin::{ mutex::SpinMutex, rwlock::RwLock };
+use spin::{mutex::SpinMutex, rwlock::RwLock};
 
 use crate::exception::arch_exception::ExceptionContext;
+use crate::info;
 use crate::synchronization::IRQSafeLock;
 use crate::time::time_manager;
-use crate::{ synchronization::{ interface::Mutex, SpinLock }, thread::Thread };
+use crate::{
+    synchronization::{interface::Mutex, SpinLock},
+    thread::Thread,
+};
 
 type ThreadMap = IRQSafeLock<LinkedList<Thread>>;
 
@@ -74,11 +81,31 @@ impl ThreadQueue {
 pub static mut CURRENT: Option<u64> = Option::None;
 pub static RUNNING: ThreadQueue = ThreadQueue::new();
 
-pub fn store_context(s: &mut ExceptionContext, d: &mut ExceptionContext) {
+fn store_context(s: &mut ExceptionContext, d: &mut ExceptionContext) {
     d.elr_el1 = s.elr_el1;
     d.esr_el1 = s.esr_el1;
     d.gpr = s.gpr;
     d.lr = s.lr;
     d.sp_el0 = s.sp_el0;
     d.spsr_el1 = s.spsr_el1;
+}
+
+pub fn reschedule(_ec: &mut ExceptionContext) {
+    let cur_pid;
+    let _cur_thread;
+    unsafe {
+        if CURRENT.is_some() {
+            cur_pid = CURRENT.unwrap();
+            _cur_thread = RUNNING.get_by_pid(cur_pid).unwrap();
+            store_context(_ec, _cur_thread.get_ex_context());
+        } else {
+            info!("Current = None");
+        }
+    }
+    let next_thread: &mut Thread = RUNNING.next().expect("No next thread found!");
+
+    unsafe {
+        CURRENT = Some(next_thread.get_pid());
+    }
+    store_context(next_thread.get_ex_context(), _ec);
 }

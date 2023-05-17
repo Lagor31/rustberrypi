@@ -251,6 +251,7 @@ impl fmt::Display for ExceptionContext {
         writeln!(f, "ESR_EL1: {:#x}", self.esr_el1)?;
 
         writeln!(f, "FAR_EL1: {:#018x}", FAR_EL1.get() as usize)?;
+        writeln!(f, "SP_EL0: {:#x}", self.sp_el0)?;
 
         writeln!(f, "SPSR_EL1: {:#x}", self.spsr_el1)?;
         writeln!(f, "ELR_EL1: {:#018x}", self.elr_el1)?;

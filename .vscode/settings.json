@@ -1,13 +1,21 @@
 {
   "editor.formatOnSave": true,
-  "editor.rulers": [100],
+  "editor.rulers": [
+    100
+  ],
   "rust-analyzer.cargo.target": "aarch64-unknown-none-softfloat",
-  "rust-analyzer.cargo.features": ["bsp_rpi4"],
+  "rust-analyzer.cargo.features": [
+    "bsp_rpi4"
+  ],
   "workbench.colorCustomizations": {
-    "editor.selectionHighlightBackground": "#eeff00",
+    "editor.selectionHighlightBackground": "#fbff00d8",
+    "editor.background": "#202020",
   },
   "rust-analyzer.checkOnSave.allTargets": false,
-  "rust-analyzer.checkOnSave.extraArgs": ["--lib", "--bins"],
+  "rust-analyzer.checkOnSave.extraArgs": [
+    "--lib",
+    "--bins"
+  ],
   "rust-analyzer.lens.debug": false,
   "rust-analyzer.lens.run": false
 }
