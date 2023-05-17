@@ -1,4 +1,4 @@
-use core::{borrow::BorrowMut, cell::UnsafeCell};
+use core::{ borrow::BorrowMut, cell::UnsafeCell };
 
 use alloc::collections::linked_list::Iter;
 use alloc::collections::LinkedList;
@@ -11,19 +11,14 @@ use rand::SeedableRng;
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
-    collections::{
-        btree_map::{IterMut, ValuesMut},
-        BTreeMap,
-    },
+    collections::{ btree_map::{ IterMut, ValuesMut }, BTreeMap },
 };
-use spin::{mutex::SpinMutex, rwlock::RwLock};
+use spin::{ mutex::SpinMutex, rwlock::RwLock };
 
+use crate::exception::arch_exception::ExceptionContext;
 use crate::synchronization::IRQSafeLock;
 use crate::time::time_manager;
-use crate::{
-    synchronization::{interface::Mutex, SpinLock},
-    thread::Thread,
-};
+use crate::{ synchronization::{ interface::Mutex, SpinLock }, thread::Thread };
 
 type ThreadMap = IRQSafeLock<LinkedList<Thread>>;
 
@@ -78,3 +73,12 @@ impl ThreadQueue {
 
 pub static mut CURRENT: Option<u64> = Option::None;
 pub static RUNNING: ThreadQueue = ThreadQueue::new();
+
+pub fn store_context(s: &mut ExceptionContext, d: &mut ExceptionContext) {
+    d.elr_el1 = s.elr_el1;
+    d.esr_el1 = s.esr_el1;
+    d.gpr = s.gpr;
+    d.lr = s.lr;
+    d.sp_el0 = s.sp_el0;
+    d.spsr_el1 = s.spsr_el1;
+}

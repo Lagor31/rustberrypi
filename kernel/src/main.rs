@@ -23,23 +23,19 @@
 #![feature(unchecked_math)]
 #![feature(never_type)]
 #![allow(dead_code, unused_imports)]
-use core::{cell::UnsafeCell, panic, time::Duration};
+use core::{ cell::UnsafeCell, panic, time::Duration };
 
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
 use tock_registers::interfaces::Readable;
+use crate::scheduler::store_context;
+use crate::thread::{ thread, wait_thread, Thread };
 
-/* use rand::rngs::SmallRng;
-use rand::RngCore;
-use rand::SeedableRng;
-use crate::smp::start_core;
-
- */
 use crate::{
     board::version,
-    cpu::{core_id, wait_forever},
-    exception::asynchronous::{local_irq_mask_save, local_irq_restore},
-    scheduler::{CURRENT, RUNNING},
+    cpu::{ core_id, wait_forever },
+    exception::asynchronous::{ local_irq_mask_save, local_irq_restore },
+    scheduler::{ CURRENT, RUNNING },
     smp::start_core,
     time::time_manager,
 };
@@ -66,10 +62,6 @@ pub mod state;
 pub mod symbols;
 pub mod thread;
 pub mod time;
-
-extern "C" {
-    fn __switch_to(current: &mut ExceptionContext, next: &mut ExceptionContext);
-}
 
 extern "Rust" {
     static __test_me: UnsafeCell<()>;
@@ -115,7 +107,7 @@ unsafe fn kernel_init() -> ! {
 /// The main function running after the early init.
 fn kernel_main() -> ! {
     for _ in 0..10 {
-        info!("\n")
+        info!("\n");
     }
 
     info!("{}", version());
@@ -130,10 +122,7 @@ fn kernel_main() -> ! {
     info!("Exception handling state:");
     exception::asynchronous::print_state();
 
-    info!(
-        "Architectural timer resolution: {} ns",
-        time::time_manager().resolution().as_nanos()
-    );
+    info!("Architectural timer resolution: {} ns", time::time_manager().resolution().as_nanos());
 
     info!("Drivers loaded:");
     driver::driver_manager().enumerate();
@@ -145,25 +134,27 @@ fn kernel_main() -> ! {
     memory::heap_alloc::kernel_heap_allocator().print_usage();
     info!("Echoing input now");
 
-    /*     info!("Enabling other cores");
+    info!("Enabling other cores");
     (1..=3).for_each(|i| unsafe { start_core(i) });
 
-    state::state_manager().transition_to_multi_core_main(); */
+    state::state_manager().transition_to_multi_core_main();
     info!("Kernel Init:\n");
     info!("SPSel={}", aarch64_cpu::registers::SPSel.get());
     info!("SP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
     info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
 
     let entry_point = thread as *const () as u64;
+    let wait_thread_ep = wait_thread as *const () as u64;
 
-    let mut _wasted = thread::Thread::new(entry_point);
+    let wait_thread = Thread::new(wait_thread_ep);
+    RUNNING.add(wait_thread);
 
     for _ in 0..10 {
-        let new_thread = thread::Thread::new(entry_point);
+        let new_thread = Thread::new(entry_point);
         RUNNING.add(new_thread);
     }
 
-    time::time_manager().set_timeout_periodic(
+    time_manager().set_timeout_periodic(
         Duration::from_millis(2),
         Box::new(|_ec| {
             //info!("Timer interrupt!");
@@ -179,7 +170,7 @@ fn kernel_main() -> ! {
                     info!("Current = None");
                 }
             }
-            let next_thread: &mut thread::Thread = RUNNING.next().expect("No next thread found!");
+            let next_thread: &mut Thread = RUNNING.next().expect("No next thread found!");
             unsafe {
                 CURRENT = Some(next_thread.get_pid());
             }
@@ -192,7 +183,7 @@ fn kernel_main() -> ! {
             info!("[IRQ] Switching to thread {}...", next_thread.get_pid()); */
 
             //time_manager().spin_for(Duration::from_millis(500));
-        }),
+        })
     );
 
     /*   let next_thread: &mut thread::Thread = RUNNING.next().expect("No next thread found!");
@@ -203,42 +194,4 @@ fn kernel_main() -> ! {
     } */
 
     wait_forever();
-}
-
-pub fn thread() {
-    let mut c = 0;
-    loop {
-        let my_pid;
-        unsafe {
-            my_pid = CURRENT.unwrap();
-        }
-
-        info!("\nHello from thread with PID={}! C={}", my_pid, c);
-
-        info!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
-        info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
-
-        c += 1;
-        let next_thread = RUNNING.next().expect("No next thread found!");
-        //info!("[THREAD] Switching to thread {}...", next_thread.get_pid());
-        unsafe {
-            let _my_thread = RUNNING.get_by_pid(my_pid).unwrap();
-            CURRENT = Some(next_thread.get_pid());
-            __switch_to(_my_thread.get_ex_context(), next_thread.get_ex_context());
-        }
-        time_manager().spin_for(Duration::from_millis(1000));
-    }
-}
-
-pub fn wait_thread() {
-    wait_forever();
-}
-
-pub fn store_context(s: &mut ExceptionContext, d: &mut ExceptionContext) {
-    d.elr_el1 = s.elr_el1;
-    d.esr_el1 = s.esr_el1;
-    d.gpr = s.gpr;
-    d.lr = s.lr;
-    d.sp_el0 = s.sp_el0;
-    d.spsr_el1 = s.spsr_el1;
 }
