@@ -202,7 +202,8 @@ __switch_to:
 	//x0 = Current Thread Exception Context
 	//x1 = Next Thread Exception Context
 	// Saving current stuff into Current Thread
-	// Store all general purpose registers on the stack.
+	
+	// Store all general purpose registers
 	stp	x0,  x1,  [x0, #16 * 0]
 	stp	x2,  x3,  [x0, #16 * 1]
 	stp	x4,  x5,  [x0, #16 * 2]
@@ -219,14 +220,16 @@ __switch_to:
 	stp	x26, x27, [x0, #16 * 13]
 	stp	x28, x29, [x0, #16 * 14]
 
+
+	//Saving LR in both LR and ELR_EL1
 	mov	x10,  lr
 	stp	lr,  x10,  [x0, #16 * 15]
 
+	//Saving stack pointer in SP_EL0
 	mov x2, sp
 	stp x2, x2, [x0, #16 * 17] 
 
 	//Restore
-
 	ldp	lr,  x20, [x1, #16 * 15]
 	msr ELR_EL1, x20 
 
