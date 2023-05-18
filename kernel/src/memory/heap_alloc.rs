@@ -5,14 +5,18 @@
 //! Heap allocation.
 
 use crate::{
-    backtrace, common, debug, info, memory,
-    memory::{Address, Virtual},
+    backtrace,
+    common,
+    debug,
+    info,
+    memory,
+    memory::{ Address, Virtual },
     synchronization,
     synchronization::IRQSafeLock,
     warn,
 };
-use alloc::alloc::{GlobalAlloc, Layout};
-use core::sync::atomic::{AtomicBool, Ordering};
+use alloc::alloc::{ GlobalAlloc, Layout };
+use core::sync::atomic::{ AtomicBool, Ordering };
 use linked_list_allocator::Heap as LinkedListHeap;
 
 //--------------------------------------------------------------------------------------------------
@@ -82,9 +86,7 @@ impl HeapAllocator {
 
     /// Print the current heap usage.
     pub fn print_usage(&self) {
-        let (used, free) = KERNEL_HEAP_ALLOCATOR
-            .inner
-            .lock(|inner| (inner.used(), inner.free()));
+        let (used, free) = KERNEL_HEAP_ALLOCATOR.inner.lock(|inner| (inner.used(), inner.free()));
 
         if used >= 1024 {
             let (used_h, used_unit) = common::size_human_readable_ceil(used);
@@ -104,16 +106,16 @@ impl HeapAllocator {
 
 unsafe impl GlobalAlloc for HeapAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let result = KERNEL_HEAP_ALLOCATOR
-            .inner
-            .lock(|inner| inner.allocate_first_fit(layout).ok());
+        let result = KERNEL_HEAP_ALLOCATOR.inner.lock(|inner|
+            inner.allocate_first_fit(layout).ok()
+        );
 
         match result {
             None => core::ptr::null_mut(),
             Some(allocation) => {
                 let ptr = allocation.as_ptr();
 
-                debug_print_alloc_dealloc("Allocation", ptr, layout);
+                //debug_print_alloc_dealloc("Allocation", ptr, layout);
 
                 ptr
             }
@@ -121,11 +123,11 @@ unsafe impl GlobalAlloc for HeapAllocator {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        KERNEL_HEAP_ALLOCATOR
-            .inner
-            .lock(|inner| inner.deallocate(core::ptr::NonNull::new_unchecked(ptr), layout));
+        KERNEL_HEAP_ALLOCATOR.inner.lock(|inner|
+            inner.deallocate(core::ptr::NonNull::new_unchecked(ptr), layout)
+        );
 
-        debug_print_alloc_dealloc("Free", ptr, layout);
+        //debug_print_alloc_dealloc("Free", ptr, layout);
     }
 }
 

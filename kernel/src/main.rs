@@ -26,7 +26,7 @@
 #![feature(linked_list_remove)]
 use core::{ cell::UnsafeCell, panic, time::Duration };
 
-use crate::scheduler::reschedule_from_context;
+use crate::scheduler::{ reschedule_from_context, SLEEPING };
 use crate::thread::{ thread, wait_thread, Thread };
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
@@ -159,6 +159,8 @@ fn kernel_main() -> ! {
         }
     }
 
+    info!("Running Thread list for Core{}:\n{}", core, RUNNING[core]);
+
     time_manager().set_timeout_periodic(
         Duration::from_millis(2),
         Box::new(|_ec| {
@@ -173,6 +175,22 @@ fn kernel_main() -> ! {
             info!("[IRQ] Switching to thread {}...", next_thread.get_pid()); */
 
             //time_manager().spin_for(Duration::from_millis(500));
+        })
+    );
+
+    time_manager().set_timeout_periodic(
+        Duration::from_secs(5),
+        Box::new(|_ec| {
+            let core = core_id::<usize>();
+            debug!("Hi from core {}", core);
+            debug!("RUNNING Q Core{}:\n{}", core, RUNNING[core]);
+            debug!("SLEEPING Q Core{}:\n{}", core, SLEEPING);
+            let entry_point = thread as *const () as u64;
+
+            let new_thread = Thread::new(entry_point);
+            RUNNING[core].add(new_thread);
+            let _a = SLEEPING.pop();
+            memory::heap_alloc::kernel_heap_allocator().print_usage();
         })
     );
     wait_forever();

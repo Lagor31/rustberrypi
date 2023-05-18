@@ -39,16 +39,16 @@ unsafe fn kernel_init_secondary() -> ! {
     // Unmask interrupts on the current CPU core.
     local_irq_unmask();
 
-    //wait_forever();
+    wait_forever();
 
-    let core = core_id::<usize>();
+    /*     let core = core_id::<usize>();
     let mut small_rng = SmallRng::seed_from_u64(core as u64);
     loop {
-        info!("Hi from core {} with RNG: {:#x}", core, small_rng.next_u64() % 1000);
+        info!("Hi from core {} with RNG: {:#x}", core, small_rng.next_u64() % 10000);
         time_manager().spin_for(Duration::from_secs((core as u64) + 5));
-        debug!("Thread list for Core{}:\n{}", core, RUNNING[core]);
-        debug!("Sleeping Q:\n{}", SLEEPING);
-    }
+        debug!("RUNNING Q Core{}:\n{}", core, RUNNING[core]);
+        debug!("SLEEPING Q Core{}:\n{}", core, SLEEPING);
+    } */
 }
 
 #[no_mangle]
@@ -90,6 +90,8 @@ pub unsafe fn start_core(core_id: u8) {
             options(nomem, nostack, preserves_flags)
         );
     }
+
+    // Probably overkill but weak memory ordering is hard...
     dmb(aarch64_cpu::asm::barrier::SY);
     isb(aarch64_cpu::asm::barrier::SY);
     dsb(aarch64_cpu::asm::barrier::SY);

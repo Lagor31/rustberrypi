@@ -55,7 +55,7 @@ impl ThreadQueue {
         self.irq_lock.lock(|spin_lock| {
             spin_lock.lock(|threads| {
                 let mut r = SmallRng::seed_from_u64(time_manager().uptime().as_millis() as u64);
-                let len = threads.len() - 1;
+                let len = threads.len();
                 let r = (r.next_u64() as usize) % len;
                 for (t, p) in threads.iter_mut().enumerate() {
                     if t == r {
@@ -139,7 +139,9 @@ pub fn reschedule_from_context(_ec: &mut ExceptionContext) {
     let core: usize = core_id();
     CURRENT[core].lock(|cur_pid| {
         if cur_pid.is_some() {
-            let _cur_thread = RUNNING[core].get_by_pid(cur_pid.unwrap()).unwrap();
+            let _cur_thread = RUNNING[core].get_by_pid(cur_pid.unwrap()).unwrap_or_else(||
+                panic!("[IRQ] Cannot find PID={} in RUNNING[{}]", cur_pid.unwrap(), core)
+            );
             store_context(_ec, _cur_thread.get_ex_context());
         } else {
             info!("Current = None");

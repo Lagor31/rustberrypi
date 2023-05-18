@@ -86,57 +86,44 @@ pub fn thread() {
     let mut c: i32 = 0;
     loop {
         let core: usize = core_id();
-        let my_pid = CURRENT[core].lock(|c| c);
-        info!("Hello from thread with PID={}! C={} @Core{}", my_pid.unwrap(), c, core);
+        let my_pid = CURRENT[core].lock(|c| c).unwrap();
+        info!("Hello from thread with PID={}! C={} @Core{}", my_pid, c, core);
         /*  debug!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
         debug!("\tSP={:#x}", aarch64_cpu::registers::SP.get()); */
         c += 1;
-        if c > 10 {
-            info!(
-                "Thread with PID={}! C={} @Core{} is going to sleep...",
-                my_pid.unwrap(),
-                c,
-                core
-            );
+        //Sleeping
+        /*   if c > 10 {
             sleep();
-        }
-        reschedule();
+        } */
+        let threads = reschedule();
+        switch_to(threads.0, threads.1);
         time_manager().spin_for(Duration::from_millis(1000));
     }
 }
 
-pub fn sleep() {
+fn sleep() {
     let core: usize = core_id();
+    let my_pid = CURRENT[core].lock(|c| c).unwrap();
+    let threads = reschedule();
 
-    CURRENT[core].lock(|cur| {
-        let mut _my_thread = RUNNING[core].remove(cur.unwrap()).unwrap();
-        let next_thread = RUNNING[core].next().expect("No next thread found!");
-        //debug!("[SLEEP] Switching to thread {}...", next_thread.get_pid());
-        let int_not_masked = !is_local_irq_masked();
-        //TODO: give abstraction to SPSR_EL1
-        if int_not_masked {
-            _my_thread.get_ex_context().spsr_el1 |= 0x80;
-        } else {
-            _my_thread.get_ex_context().spsr_el1 &= 0b11111111111111111111111101111111;
-        }
-        SLEEPING.add(_my_thread);
-        let _my_thread = SLEEPING.get_by_pid(cur.unwrap()).unwrap_or_else(||
-            panic!("Cannot find PID={} in SLEEPING[{}]", cur.unwrap(), core)
-        );
-        *cur = Some(next_thread.get_pid());
-        unsafe { __switch_to(_my_thread.get_ex_context(), next_thread.get_ex_context()) }
-    });
+    let t = RUNNING[core].remove(my_pid);
+    if t.is_some() {
+        info!("Thread {} going to sleep...", my_pid);
+        SLEEPING.add(t.unwrap());
+        switch_to(threads.0, threads.1)
+    } else {
+        panic!("Thread with PID={} not found in RUNNING[{}], cannot go to sleep!", my_pid, core);
+    }
 }
-pub fn reschedule() {
+
+pub fn reschedule() -> (&'static mut Thread, &'static mut Thread) {
     let core: usize = core_id();
 
     let next_thread = RUNNING[core].next().expect("No next thread found!");
-    //debug!("[RESCHEDULE] Switching to thread {}...", next_thread.get_pid());
-
+    //debug!("[THREAD] Switching to thread {}...", next_thread.get_pid());
     CURRENT[core].lock(|cur| {
-        let _my_thread = RUNNING[core].get_by_pid(cur.unwrap()).unwrap_or_else(||
-            panic!("Cannot find PID={} in RUNNING[{}]", cur.unwrap(), core)
-        );
+        let _my_thread = RUNNING[core].get_by_pid(cur.unwrap()).unwrap();
+        *cur = Some(next_thread.get_pid());
         let int_not_masked = !is_local_irq_masked();
         //TODO: give abstraction to SPSR_EL1
         if int_not_masked {
@@ -144,9 +131,13 @@ pub fn reschedule() {
         } else {
             _my_thread.get_ex_context().spsr_el1 &= 0b11111111111111111111111101111111;
         }
-        *cur = Some(next_thread.get_pid());
-        unsafe { __switch_to(_my_thread.get_ex_context(), next_thread.get_ex_context()) }
-    });
+        (_my_thread, next_thread)
+    })
+    //panic!("Should never get here!");
+}
+
+fn switch_to(_my_thread: &mut Thread, next_thread: &mut Thread) {
+    unsafe { __switch_to(_my_thread.get_ex_context(), next_thread.get_ex_context()) }
 }
 
 pub fn wait_thread() {
