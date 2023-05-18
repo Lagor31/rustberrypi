@@ -38,6 +38,8 @@ pub static RUNNING: [ThreadQueue; 4] = [
     ThreadQueue::new(), //CORE3
 ];
 
+pub static SLEEPING: ThreadQueue = ThreadQueue::new();
+
 pub struct ThreadQueue {
     irq_lock: IRQSafeLock<SpinLock<LinkedList<Thread>>>,
 }
@@ -79,6 +81,24 @@ impl ThreadQueue {
         })
     }
 
+    pub fn remove(&self, pid: u64) -> Option<Thread> {
+        self.irq_lock.lock(|spin_lock| {
+            spin_lock.lock(|threads| {
+                let mut pos: Option<usize> = None;
+                for (i, t) in threads.iter().enumerate() {
+                    if t.get_pid() == pid {
+                        pos = Some(i);
+                    }
+                }
+                if pos.is_some() {
+                    Some(threads.remove(pos.unwrap()))
+                } else {
+                    Option::None
+                }
+            })
+        })
+    }
+
     pub fn get_by_pid(&self, pid: u64) -> Option<&mut Thread> {
         self.irq_lock.lock(|spin_lock| {
             spin_lock.lock(|threads| {
@@ -115,7 +135,7 @@ fn store_context(s: &mut ExceptionContext, d: &mut ExceptionContext) {
     d.spsr_el1 = s.spsr_el1;
 }
 
-pub fn reschedule(_ec: &mut ExceptionContext) {
+pub fn reschedule_from_context(_ec: &mut ExceptionContext) {
     let core: usize = core_id();
     CURRENT[core].lock(|cur_pid| {
         if cur_pid.is_some() {

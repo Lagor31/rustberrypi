@@ -5,13 +5,13 @@ use rand::{ rngs::SmallRng, RngCore, SeedableRng };
 use tock_registers::{ interfaces::Writeable, register_structs, registers::ReadWrite };
 
 use crate::{
-    cpu::core_id,
+    cpu::{ core_id, wait_forever },
     drivers::common::MMIODerefWrapper,
     exception::{ self, asynchronous::local_irq_unmask },
     info,
     memory::{ Address, Virtual, __core_activation_address, mmu },
     time::time_manager,
-    scheduler::RUNNING,
+    scheduler::{ RUNNING, SLEEPING },
     debug,
 };
 
@@ -39,14 +39,15 @@ unsafe fn kernel_init_secondary() -> ! {
     // Unmask interrupts on the current CPU core.
     local_irq_unmask();
 
+    //wait_forever();
+
     let core = core_id::<usize>();
     let mut small_rng = SmallRng::seed_from_u64(core as u64);
     loop {
-        info!("Hi from core {} with RNG: {:#x}", core_id::<u64>(), small_rng.next_u64() % 1000);
-
+        info!("Hi from core {} with RNG: {:#x}", core, small_rng.next_u64() % 1000);
         time_manager().spin_for(Duration::from_secs((core as u64) + 5));
-
-        debug!("Thread list for core {}\n{}", core, RUNNING[core]);
+        debug!("Thread list for Core{}:\n{}", core, RUNNING[core]);
+        debug!("Sleeping Q:\n{}", SLEEPING);
     }
 }
 

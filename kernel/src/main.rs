@@ -23,9 +23,10 @@
 #![feature(unchecked_math)]
 #![feature(never_type)]
 #![allow(dead_code, unused_imports)]
+#![feature(linked_list_remove)]
 use core::{ cell::UnsafeCell, panic, time::Duration };
 
-use crate::scheduler::reschedule;
+use crate::scheduler::reschedule_from_context;
 use crate::thread::{ thread, wait_thread, Thread };
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
@@ -163,7 +164,7 @@ fn kernel_main() -> ! {
         Box::new(|_ec| {
             //info!("Timer interrupt!");
 
-            reschedule(_ec);
+            reschedule_from_context(_ec);
 
             /*    info!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
             info!("\tSP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
