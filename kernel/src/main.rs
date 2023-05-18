@@ -30,6 +30,8 @@ use crate::scheduler::{ reschedule_from_context, SLEEPING };
 use crate::thread::{ thread, wait_thread, Thread };
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
+use rand::{ SeedableRng, RngCore };
+use rand::rngs::SmallRng;
 use tock_registers::interfaces::Readable;
 
 use crate::{
@@ -179,13 +181,21 @@ fn kernel_main() -> ! {
     );
 
     time_manager().set_timeout_periodic(
-        Duration::from_secs(1),
+        Duration::from_secs(5),
         Box::new(|_ec| {
             let core = core_id::<usize>();
             debug!("Hi from core {}", core);
             let entry_point = thread as *const () as u64;
-            let new_thread = Thread::new(entry_point);
-            RUNNING[core].add(new_thread);
+
+            let mut small_rng = SmallRng::seed_from_u64(time_manager().uptime().as_millis() as u64);
+
+            let num_new_threads = (small_rng.next_u64() % 10) + 1;
+            debug!("Creating {} new threads", num_new_threads);
+            for _ in 0..num_new_threads {
+                let new_thread = Thread::new(entry_point);
+                RUNNING[core].add(new_thread);
+            }
+
             debug!("RUNNING Q Core{}:\n{}", core, RUNNING[core]);
             if SLEEPING.size() > 0 {
                 SLEEPING.clear();

@@ -8,6 +8,7 @@ use core::{
 };
 
 use aarch64_cpu::registers::{ DAIF, ESR_EL1, SPSR_EL1 };
+use rand::{ rngs::SmallRng, SeedableRng, RngCore };
 use tock_registers::{ interfaces::{ Readable, Writeable }, registers::InMemoryRegister };
 
 use crate::{
@@ -105,7 +106,9 @@ extern "C" {
 }
 
 pub fn thread() {
-    let mut c: i32 = 0;
+    let mut c: u64 = 0;
+    let mut small_rng = SmallRng::seed_from_u64(time_manager().uptime().as_millis() as u64);
+    let stop_me: u64 = (small_rng.next_u64() % 20) + 1;
     loop {
         let core: usize = core_id();
         let my_pid = CURRENT[core].lock(|c| c);
@@ -113,7 +116,7 @@ pub fn thread() {
         /*  debug!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
         debug!("\tSP={:#x}", aarch64_cpu::registers::SP.get()); */
         c += 1;
-        if c > 10 {
+        if c > stop_me {
             info!(
                 "Thread with PID={}! C={} @Core{} is going to sleep...",
                 my_pid.unwrap(),
@@ -123,8 +126,12 @@ pub fn thread() {
             sleep();
         }
         reschedule();
-        time_manager().spin_for(Duration::from_millis(1000));
+        time_manager().spin_for(Duration::from_millis(500));
     }
+}
+
+pub fn wait_thread() {
+    wait_forever();
 }
 
 pub fn sleep() {
@@ -170,8 +177,4 @@ pub fn reschedule() {
         *cur = Some(next_thread.get_pid());
         unsafe { __switch_to(_my_thread.get_ex_context(), next_thread.get_ex_context()) }
     });
-}
-
-pub fn wait_thread() {
-    wait_forever();
 }
