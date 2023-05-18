@@ -19,7 +19,7 @@ use spin::{ mutex::SpinMutex, rwlock::RwLock };
 
 use crate::cpu::core_id;
 use crate::exception::arch_exception::ExceptionContext;
-use crate::info;
+use crate::{ info, random };
 use crate::synchronization::IRQSafeLock;
 use crate::time::time_manager;
 use crate::{ synchronization::{ interface::Mutex, SpinLock }, thread::Thread };
@@ -54,9 +54,8 @@ impl ThreadQueue {
     pub fn next(&self) -> Option<&mut Thread> {
         self.irq_lock.lock(|spin_lock| {
             spin_lock.lock(|threads| {
-                let mut r = SmallRng::seed_from_u64(time_manager().uptime().as_millis() as u64);
                 let len = threads.len();
-                let r = (r.next_u64() as usize) % len;
+                let r = (random::next_u64() as usize) % len;
                 for (t, p) in threads.iter_mut().enumerate() {
                     if t == r {
                         return Some(p);

@@ -24,14 +24,13 @@
 #![feature(never_type)]
 #![allow(dead_code, unused_imports)]
 #![feature(linked_list_remove)]
+
 use core::{ cell::UnsafeCell, panic, time::Duration };
 
 use crate::scheduler::{ reschedule_from_context, SLEEPING };
 use crate::thread::{ thread, wait_thread, Thread };
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
-use rand::{ SeedableRng, RngCore };
-use rand::rngs::SmallRng;
 use tock_registers::interfaces::Readable;
 
 use crate::{
@@ -65,6 +64,7 @@ pub mod state;
 pub mod symbols;
 pub mod thread;
 pub mod time;
+pub mod random;
 
 extern "Rust" {
     static __test_me: UnsafeCell<()>;
@@ -149,10 +149,10 @@ fn kernel_main() -> ! {
     let core: usize = core_id();
 
     let entry_point = thread as *const () as u64;
-    let wait_thread_ep = wait_thread as *const () as u64;
+    let idle_thread_ep = wait_thread as *const () as u64;
 
-    let wait_thread = Thread::new(wait_thread_ep);
-    RUNNING[core].add(wait_thread);
+    let idle_thread = Thread::new(idle_thread_ep);
+    RUNNING[core].add(idle_thread);
 
     for i in 0..4 {
         for _ in 0..10 {
@@ -163,20 +163,11 @@ fn kernel_main() -> ! {
 
     info!("Running Thread list for Core{}:\n{}", core, RUNNING[core]);
 
+    //Setting the scheduler timer interrupt
     time_manager().set_timeout_periodic(
         Duration::from_millis(2),
         Box::new(|_ec| {
-            //info!("Timer interrupt!");
-
             reschedule_from_context(_ec);
-
-            /*    info!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
-            info!("\tSP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
-            info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
-
-            info!("[IRQ] Switching to thread {}...", next_thread.get_pid()); */
-
-            //time_manager().spin_for(Duration::from_millis(500));
         })
     );
 
@@ -187,9 +178,7 @@ fn kernel_main() -> ! {
             debug!("Hi from core {}", core);
             let entry_point = thread as *const () as u64;
 
-            let mut small_rng = SmallRng::seed_from_u64(time_manager().uptime().as_millis() as u64);
-
-            let num_new_threads = (small_rng.next_u64() % 10) + 1;
+            let num_new_threads = (random::next_u64() % 10) + 1;
             debug!("Creating {} new threads", num_new_threads);
             for _ in 0..num_new_threads {
                 let new_thread = Thread::new(entry_point);

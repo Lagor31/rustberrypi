@@ -13,6 +13,7 @@ use crate::{
     time::time_manager,
     scheduler::{ RUNNING, SLEEPING },
     debug,
+    random,
 };
 
 register_structs! {
@@ -41,10 +42,8 @@ unsafe fn kernel_init_secondary() -> ! {
 
     wait_forever();
 
-    /*     let core = core_id::<usize>();
-    let mut small_rng = SmallRng::seed_from_u64(core as u64);
-    loop {
-        info!("Hi from core {} with RNG: {:#x}", core, small_rng.next_u64() % 10000);
+    /*    loop {
+        info!("Hi from core {} with RNG: {:#x}", core, random::next_u64() % 10000);
         time_manager().spin_for(Duration::from_secs((core as u64) + 5));
         debug!("RUNNING Q Core{}:\n{}", core, RUNNING[core]);
         debug!("SLEEPING Q Core{}:\n{}", core, SLEEPING);

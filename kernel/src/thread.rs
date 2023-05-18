@@ -23,6 +23,7 @@ use crate::{
     time::time_manager,
     synchronization::interface::Mutex,
     debug,
+    random,
 };
 
 pub struct Thread {
@@ -107,8 +108,7 @@ extern "C" {
 
 pub fn thread() {
     let mut c: u64 = 0;
-    let mut small_rng = SmallRng::seed_from_u64(time_manager().uptime().as_millis() as u64);
-    let stop_me: u64 = (small_rng.next_u64() % 20) + 1;
+    let stop_me: u64 = (random::next_u64() % 20) + 1;
     loop {
         let core: usize = core_id();
         let my_pid = CURRENT[core].lock(|c| c);
