@@ -179,19 +179,19 @@ fn kernel_main() -> ! {
     );
 
     time_manager().set_timeout_periodic(
-        Duration::from_secs(5),
+        Duration::from_secs(1),
         Box::new(|_ec| {
             let core = core_id::<usize>();
             debug!("Hi from core {}", core);
-            debug!("RUNNING Q Core{}:\n{}", core, RUNNING[core]);
-            debug!("SLEEPING Q Core{}:\n{}", core, SLEEPING);
             let entry_point = thread as *const () as u64;
-
             let new_thread = Thread::new(entry_point);
             RUNNING[core].add(new_thread);
+            debug!("RUNNING Q Core{}:\n{}", core, RUNNING[core]);
             if SLEEPING.size() > 0 {
                 SLEEPING.clear();
             }
+            debug!("SLEEPING Q Core{}:\n{}", core, SLEEPING);
+
             memory::heap_alloc::kernel_heap_allocator().print_usage();
         })
     );

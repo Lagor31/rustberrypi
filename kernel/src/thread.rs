@@ -4,6 +4,7 @@ use core::{
     sync::atomic::{ AtomicU64, Ordering },
     time::Duration,
     fmt,
+    ptr::addr_of_mut,
 };
 
 use aarch64_cpu::registers::{ DAIF, ESR_EL1, SPSR_EL1 };
@@ -16,7 +17,7 @@ use crate::{
         asynchronous::{ is_local_irq_masked, local_irq_mask_save, local_irq_restore, print_state },
     },
     info,
-    memory,
+    memory::{ self, heap_alloc::kernel_heap_allocator },
     scheduler::{ CURRENT, RUNNING, SLEEPING },
     time::time_manager,
     synchronization::interface::Mutex,
@@ -26,15 +27,21 @@ use crate::{
 pub struct Thread {
     pid: u64,
     context: ExceptionContext,
+    original_stack: usize,
 }
 
 static PID: AtomicU64 = AtomicU64::new(1);
 
+const STACK_SIZE: usize = 8192;
+const STACK_ALIGN: usize = 4096;
+
 impl Thread {
     pub fn new(entry_point: u64) -> Self {
+        let (c, stack) = Self::make_context(entry_point);
         let out = Thread {
             pid: PID.fetch_add(1, Ordering::Acquire),
-            context: Self::make_context(entry_point),
+            context: c,
+            original_stack: stack as usize,
         };
         out
     }
@@ -47,28 +54,43 @@ impl Thread {
         self.pid
     }
 
-    fn make_context(entry_point: u64) -> ExceptionContext {
-        let p;
+    fn make_context(entry_point: u64) -> (ExceptionContext, *mut u8) {
+        let stack_pointer_low_end;
         unsafe {
-            p = memory::heap_alloc
+            stack_pointer_low_end = memory::heap_alloc
                 ::kernel_heap_allocator()
-                .alloc(Layout::from_size_align(8192, 4096).unwrap());
+                .alloc(Layout::from_size_align(STACK_SIZE, STACK_ALIGN).unwrap());
         }
 
-        let mut ptr = p as u64;
-        ptr += 8192;
+        let mut sp_value = stack_pointer_low_end as u64;
+        sp_value += 8192;
 
         let spsr_el1_init = 0x364;
         //USermode:
         //spsr_el1_init &= 0xFFF8;
-        ExceptionContext {
-            gpr: [0; 30],
-            lr: entry_point,
-            elr_el1: entry_point,
-            spsr_el1: spsr_el1_init,
-            esr_el1: 0,
-            _res_sp: 0,
-            sp_el0: ptr,
+        (
+            ExceptionContext {
+                gpr: [0; 30],
+                lr: entry_point,
+                elr_el1: entry_point,
+                spsr_el1: spsr_el1_init,
+                esr_el1: 0,
+                _res_sp: 0,
+                sp_el0: sp_value,
+            },
+            stack_pointer_low_end,
+        )
+    }
+}
+
+impl Drop for Thread {
+    fn drop(&mut self) {
+        //info!("Deallocating thread {}", self.pid);
+        unsafe {
+            kernel_heap_allocator().dealloc(
+                self.original_stack as *mut u8,
+                Layout::from_size_align(STACK_SIZE, STACK_ALIGN).unwrap()
+            )
         }
     }
 }
@@ -127,6 +149,7 @@ pub fn sleep() {
         unsafe { __switch_to(_my_thread.get_ex_context(), next_thread.get_ex_context()) }
     });
 }
+
 pub fn reschedule() {
     let core: usize = core_id();
 
