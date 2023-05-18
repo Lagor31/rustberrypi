@@ -189,7 +189,9 @@ fn kernel_main() -> ! {
 
             let new_thread = Thread::new(entry_point);
             RUNNING[core].add(new_thread);
-            let _a = SLEEPING.pop();
+            if SLEEPING.size() > 0 {
+                SLEEPING.clear();
+            }
             memory::heap_alloc::kernel_heap_allocator().print_usage();
         })
     );

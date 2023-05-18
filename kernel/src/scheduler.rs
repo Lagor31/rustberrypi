@@ -111,6 +111,14 @@ impl ThreadQueue {
             })
         })
     }
+
+    pub fn clear(&self) {
+        self.irq_lock.lock(|spin_lock| { spin_lock.lock(|threads| { threads.clear() }) })
+    }
+
+    pub fn size(&self) -> usize {
+        self.irq_lock.lock(|spin_lock| { spin_lock.lock(|threads| { threads.len() }) })
+    }
 }
 
 impl fmt::Display for ThreadQueue {
