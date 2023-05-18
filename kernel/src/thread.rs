@@ -3,6 +3,7 @@ use core::{
     mem,
     sync::atomic::{ AtomicU64, Ordering },
     time::Duration,
+    fmt,
 };
 
 use aarch64_cpu::registers::{ DAIF, ESR_EL1, SPSR_EL1 };
@@ -72,6 +73,11 @@ impl Thread {
     }
 }
 
+impl fmt::Display for Thread {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "PID={}", self.pid)
+    }
+}
 extern "C" {
     fn __switch_to(current: &mut ExceptionContext, next: &mut ExceptionContext);
 }
@@ -81,9 +87,9 @@ pub fn thread() {
     loop {
         let core: usize = core_id();
         let my_pid = CURRENT[core].lock(|c| c);
-        info!("Hello from thread with PID={}! C={}", my_pid.unwrap(), c);
-        debug!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
-        debug!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
+        info!("Hello from thread with PID={}! C={} @Core{}", my_pid.unwrap(), c, core);
+        /*  debug!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
+        debug!("\tSP={:#x}", aarch64_cpu::registers::SP.get()); */
         c += 1;
         yield_cpu();
         time_manager().spin_for(Duration::from_millis(1000));
@@ -91,12 +97,13 @@ pub fn thread() {
 }
 
 pub fn yield_cpu() {
-    let next_thread = RUNNING.next().expect("No next thread found!");
-    debug!("[THREAD] Switching to thread {}...", next_thread.get_pid());
     let core: usize = core_id();
 
+    let next_thread = RUNNING[core].next().expect("No next thread found!");
+    //debug!("[THREAD] Switching to thread {}...", next_thread.get_pid());
+
     CURRENT[core].lock(|cur| {
-        let _my_thread = RUNNING.get_by_pid(cur.unwrap()).unwrap();
+        let _my_thread = RUNNING[core].get_by_pid(cur.unwrap()).unwrap();
         *cur = Some(next_thread.get_pid());
         let int_not_masked = !is_local_irq_masked();
         //TODO: give abstraction to SPSR_EL1

@@ -1,16 +1,18 @@
-use core::{arch::asm, cell::UnsafeCell, time::Duration};
+use core::{ arch::asm, cell::UnsafeCell, time::Duration };
 
-use aarch64_cpu::asm::barrier::{dmb, dsb, isb};
-use rand::{rngs::SmallRng, RngCore, SeedableRng};
-use tock_registers::{interfaces::Writeable, register_structs, registers::ReadWrite};
+use aarch64_cpu::asm::barrier::{ dmb, dsb, isb };
+use rand::{ rngs::SmallRng, RngCore, SeedableRng };
+use tock_registers::{ interfaces::Writeable, register_structs, registers::ReadWrite };
 
 use crate::{
     cpu::core_id,
     drivers::common::MMIODerefWrapper,
-    exception::{self, asynchronous::local_irq_unmask},
+    exception::{ self, asynchronous::local_irq_unmask },
     info,
-    memory::{Address, Virtual, __core_activation_address, mmu},
+    memory::{ Address, Virtual, __core_activation_address, mmu },
     time::time_manager,
+    scheduler::RUNNING,
+    debug,
 };
 
 register_structs! {
@@ -37,51 +39,33 @@ unsafe fn kernel_init_secondary() -> ! {
     // Unmask interrupts on the current CPU core.
     local_irq_unmask();
 
-    let cid = core_id::<u64>();
-    let mut small_rng = SmallRng::seed_from_u64(cid);
+    let core = core_id::<usize>();
+    let mut small_rng = SmallRng::seed_from_u64(core as u64);
     loop {
-        info!(
-            "Hi from core {} with RNG: {:#x}",
-            core_id::<u64>(),
-            small_rng.next_u64() % 1000
-        );
+        info!("Hi from core {} with RNG: {:#x}", core_id::<u64>(), small_rng.next_u64() % 1000);
 
-        time_manager().spin_for(Duration::from_secs(cid + 10));
+        time_manager().spin_for(Duration::from_secs((core as u64) + 5));
+
+        debug!("Thread list for core {}\n{}", core, RUNNING[core]);
     }
-
-    //    wait_forever();
-    /*     loop {
-        info!(
-            "Hi from core {} with RNG: {:#x}",
-            cid,
-            small_rng.next_u64() % 1000
-        );
-        //spin_for(Duration::from_micros(core_id * 10));
-    } */
-    //wait_forever();
 }
 
 #[no_mangle]
 pub unsafe fn start_core(core_id: u8) {
     let start_f_address = _start_secondary.get() as usize;
 
-    info!(
-        "Core {} starting with function at address {:#x}",
-        core_id, start_f_address
-    );
+    info!("Core {} starting with function at address {:#x}", core_id, start_f_address);
 
-    let mut core_wakeup_addr: u64 = unsafe { __core_activation_address.get() as u64 } + 0xE0;
+    let mut core_wakeup_addr: u64 = (unsafe { __core_activation_address.get() as u64 }) + 0xe0;
     info!("Core Wakeup addr: {:#x}", core_wakeup_addr);
     let cores: Registers = Registers::new(Address::<Virtual>::new(core_wakeup_addr as usize));
 
-    let phaddr = mmu::try_kernel_virt_addr_to_phys_addr(Address::<Virtual>::new(start_f_address))
+    let phaddr = mmu
+        ::try_kernel_virt_addr_to_phys_addr(Address::<Virtual>::new(start_f_address))
         .unwrap()
         .as_usize();
 
-    info!(
-        "PhysAddr of startSecondary({:#x}) => {:#x}",
-        start_f_address, phaddr
-    );
+    info!("PhysAddr of startSecondary({:#x}) => {:#x}", start_f_address, phaddr);
 
     match core_id {
         1 => {

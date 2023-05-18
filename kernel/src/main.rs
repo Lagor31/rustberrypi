@@ -143,15 +143,19 @@ fn kernel_main() -> ! {
     info!("SP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
     info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
 
+    let core: usize = core_id();
+
     let entry_point = thread as *const () as u64;
     let wait_thread_ep = wait_thread as *const () as u64;
 
     let wait_thread = Thread::new(wait_thread_ep);
-    RUNNING.add(wait_thread);
+    RUNNING[core].add(wait_thread);
 
-    for _ in 0..10 {
-        let new_thread = Thread::new(entry_point);
-        RUNNING.add(new_thread);
+    for i in 0..4 {
+        for _ in 0..10 {
+            let new_thread = Thread::new(entry_point);
+            RUNNING[core + i].add(new_thread);
+        }
     }
 
     time_manager().set_timeout_periodic(

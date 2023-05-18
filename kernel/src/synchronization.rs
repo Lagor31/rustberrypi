@@ -51,27 +51,18 @@ pub mod interface {
 ///
 /// The lock will only be used as long as it is safe to do so, i.e. as long as the kernel is
 /// executing on a single core.
-pub struct IRQSafeLock<T>
-where
-    T: ?Sized,
-{
+pub struct IRQSafeLock<T> where T: ?Sized {
     data: UnsafeCell<T>,
 }
 
-pub struct SpinLock<T>
-where
-    T: ?Sized,
-{
+pub struct SpinLock<T> where T: ?Sized {
     data: SpinMutex<UnsafeCell<T>>,
 }
 
 /// A pseudo-lock that is RW during the single-core kernel init phase and RO afterwards.
 ///
 /// Intended to encapsulate data that is populated during kernel init when no concurrency exists.
-pub struct InitStateLock<T>
-where
-    T: ?Sized,
-{
+pub struct InitStateLock<T> where T: ?Sized {
     data: UnsafeCell<T>,
 }
 
@@ -122,7 +113,7 @@ use spin::mutex::SpinMutex;
 //------------------------------------------------------------------------------
 // OS Interface Code
 //------------------------------------------------------------------------------
-use crate::{exception, state};
+use crate::{ exception, state };
 
 impl<T> interface::Mutex for IRQSafeLock<T> {
     type Data = T;
@@ -146,7 +137,7 @@ impl<T> interface::Mutex for SpinLock<T> {
         let lock = self.data.lock();
         let data = unsafe { &mut *lock.get() };
         //let data = unsafe { &mut lock.get_mut() };
-        // Execute the closure while IRQs are masked.
+        // Execute the closure while the lock is taken
         f(data)
     }
 }
