@@ -23,19 +23,19 @@
 #![feature(unchecked_math)]
 #![feature(never_type)]
 #![allow(dead_code, unused_imports)]
-use core::{cell::UnsafeCell, panic, time::Duration};
+use core::{ cell::UnsafeCell, panic, time::Duration };
 
 use crate::scheduler::reschedule;
-use crate::thread::{thread, wait_thread, Thread};
+use crate::thread::{ thread, wait_thread, Thread };
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
 use tock_registers::interfaces::Readable;
 
 use crate::{
     board::version,
-    cpu::{core_id, wait_forever},
-    exception::asynchronous::{local_irq_mask_save, local_irq_restore},
-    scheduler::{CURRENT, RUNNING},
+    cpu::{ core_id, wait_forever },
+    exception::asynchronous::{ local_irq_mask_save, local_irq_restore },
+    scheduler::{ CURRENT, RUNNING },
     smp::start_core,
     time::time_manager,
 };
@@ -122,10 +122,7 @@ fn kernel_main() -> ! {
     info!("Exception handling state:");
     exception::asynchronous::print_state();
 
-    info!(
-        "Architectural timer resolution: {} ns",
-        time::time_manager().resolution().as_nanos()
-    );
+    info!("Architectural timer resolution: {} ns", time::time_manager().resolution().as_nanos());
 
     info!("Drivers loaded:");
     driver::driver_manager().enumerate();
@@ -158,7 +155,7 @@ fn kernel_main() -> ! {
     }
 
     time_manager().set_timeout_periodic(
-        Duration::from_millis(1),
+        Duration::from_millis(2),
         Box::new(|_ec| {
             //info!("Timer interrupt!");
 
@@ -171,15 +168,7 @@ fn kernel_main() -> ! {
             info!("[IRQ] Switching to thread {}...", next_thread.get_pid()); */
 
             //time_manager().spin_for(Duration::from_millis(500));
-        }),
+        })
     );
-
-    /*   let next_thread: &mut thread::Thread = RUNNING.next().expect("No next thread found!");
-    info!("[INIT] Switching to thread {}...", next_thread.get_pid());
-    unsafe {
-        CURRENT = Some(next_thread.get_pid());
-        __switch_to(wasted.get_ex_context(), next_thread.get_ex_context());
-    } */
-
     wait_forever();
 }

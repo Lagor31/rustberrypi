@@ -11,13 +11,10 @@
 //!
 //! crate::exception::arch_exception
 
-use crate::{exception, info, memory, symbols};
-use aarch64_cpu::{asm::barrier, registers::*};
-use core::{arch::global_asm, cell::UnsafeCell, fmt};
-use tock_registers::{
-    interfaces::{Readable, Writeable},
-    registers::InMemoryRegister,
-};
+use crate::{ exception, info, memory, symbols };
+use aarch64_cpu::{ asm::barrier, registers::* };
+use core::{ arch::global_asm, cell::UnsafeCell, fmt };
+use tock_registers::{ interfaces::{ Readable, Writeable }, registers::InMemoryRegister };
 
 // Assembly counterpart to this file.
 global_asm!(
@@ -64,11 +61,8 @@ pub struct ExceptionContext {
 
 /// Prints verbose information about the exception and then panics.
 fn default_exception_handler(exc: &ExceptionContext) {
-    panic!(
-        "CPU Exception!\n\n\
-        {}",
-        exc
-    );
+    panic!("CPU Exception!\n\n\
+        {}", exc);
 }
 
 //------------------------------------------------------------------------------
@@ -255,14 +249,12 @@ impl fmt::Display for ExceptionContext {
 
         writeln!(f, "SPSR_EL1: {:#x}", self.spsr_el1)?;
         writeln!(f, "ELR_EL1: {:#018x}", self.elr_el1)?;
-        writeln!(
-            f,
-            "      Symbol: {}",
-            match symbols::lookup_symbol(memory::Address::new(self.elr_el1 as usize)) {
-                Some(sym) => sym.name(),
-                _ => "Symbol not found",
-            }
-        )?;
+        writeln!(f, "      Symbol: {}", match
+            symbols::lookup_symbol(memory::Address::new(self.elr_el1 as usize))
+        {
+            Some(sym) => sym.name(),
+            _ => "Symbol not found",
+        })?;
         writeln!(f)?;
         writeln!(f, "General purpose register:")?;
 
