@@ -103,7 +103,7 @@ impl fmt::Display for Thread {
     }
 }
 extern "C" {
-    fn __switch_to(current: &mut ExceptionContext, next: &mut ExceptionContext);
+    pub fn __switch_to(current: &mut ExceptionContext, next: &mut ExceptionContext);
 }
 
 pub fn thread() {

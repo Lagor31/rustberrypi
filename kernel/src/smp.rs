@@ -11,9 +11,11 @@ use crate::{
     info,
     memory::{ Address, Virtual, __core_activation_address, mmu },
     time::time_manager,
-    scheduler::{ RUNNING, SLEEPING },
+    scheduler::{ RUNNING, SLEEPING, CURRENT },
     debug,
     random,
+    thread::{ reschedule, Thread, __switch_to, thread },
+    synchronization::interface::Mutex,
 };
 
 register_structs! {
@@ -39,6 +41,16 @@ unsafe fn kernel_init_secondary() -> ! {
 
     // Unmask interrupts on the current CPU core.
     local_irq_unmask();
+    let entry_point = thread as *const () as u64;
+
+    let core: usize = core_id();
+    CURRENT[core].lock(|cur_pid| {
+        let mut wasted = Thread::new(entry_point);
+        let next_thread: &mut Thread = RUNNING[core].next().expect("No next thread found!");
+
+        *cur_pid = Some(next_thread.get_pid());
+        __switch_to(wasted.get_ex_context(), next_thread.get_ex_context());
+    });
 
     wait_forever();
 

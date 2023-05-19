@@ -29,6 +29,7 @@ use core::{ cell::UnsafeCell, panic, time::Duration };
 
 use crate::scheduler::{ reschedule_from_context, SLEEPING };
 use crate::thread::{ thread, wait_thread, Thread };
+use aarch64_cpu::registers::{ SP, SP_EL0, SPSel };
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
 use tock_registers::interfaces::Readable;
@@ -142,9 +143,9 @@ fn kernel_main() -> ! {
 
     state::state_manager().transition_to_multi_core_main();
     info!("Kernel Init:\n");
-    info!("SPSel={}", aarch64_cpu::registers::SPSel.get());
-    info!("SP_EL0={:#x}", aarch64_cpu::registers::SP_EL0.get());
-    info!("\tSP={:#x}", aarch64_cpu::registers::SP.get());
+    info!("SPSel={}", SPSel.get());
+    info!("SP_EL0={:#x}", SP_EL0.get());
+    info!("\tSP={:#x}", SP.get());
 
     let core: usize = core_id();
 
