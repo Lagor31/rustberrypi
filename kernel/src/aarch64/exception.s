@@ -234,7 +234,12 @@ __switch_to:
 	msr ELR_EL1, x20 
 
 	ldp x0, x2, [x1, #16 * 17]
+
+	//This is needed in case the kernel itself (SPSel=1) wants to switch to a thread directly
+	msr SPSel, 0
 	mov sp, x0
+	msr SPSel, 1
+
 	//msr SP_EL0, x0 
 
 	ldp x0, x2, [x1, #16 * 16]

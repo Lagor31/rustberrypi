@@ -1,6 +1,7 @@
 use core::{ arch::asm, cell::UnsafeCell, time::Duration };
 
 use aarch64_cpu::asm::barrier::{ dmb, dsb, isb };
+use alloc::boxed::Box;
 use rand::{ rngs::SmallRng, RngCore, SeedableRng };
 use tock_registers::{ interfaces::Writeable, register_structs, registers::ReadWrite };
 
@@ -11,7 +12,7 @@ use crate::{
     info,
     memory::{ Address, Virtual, __core_activation_address, mmu },
     time::time_manager,
-    scheduler::{ RUNNING, SLEEPING, CURRENT },
+    scheduler::{ RUNNING, SLEEPING, CURRENT, reschedule_from_context },
     debug,
     random,
     thread::{ reschedule, Thread, __switch_to, thread },
@@ -41,14 +42,23 @@ unsafe fn kernel_init_secondary() -> ! {
 
     // Unmask interrupts on the current CPU core.
     local_irq_unmask();
+
     let entry_point = thread as *const () as u64;
 
     let core: usize = core_id();
+
+    info!("Running Thread list for Core{}:\n{}", core, RUNNING[core]);
+
     CURRENT[core].lock(|cur_pid| {
         let mut wasted = Thread::new(entry_point);
         let next_thread: &mut Thread = RUNNING[core].next().expect("No next thread found!");
 
         *cur_pid = Some(next_thread.get_pid());
+        info!(
+            "Switching to thread PID={}\n {}",
+            next_thread.get_pid(),
+            next_thread.get_ex_context()
+        );
         __switch_to(wasted.get_ex_context(), next_thread.get_ex_context());
     });
 

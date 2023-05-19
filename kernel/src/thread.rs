@@ -108,7 +108,7 @@ extern "C" {
 
 pub fn thread() {
     let mut c: u64 = 0;
-    let stop_me: u64 = (random::next_u64() % 20) + 1;
+    //let stop_me: u64 = (random::next_u64() % 20) + 1;
     loop {
         let core: usize = core_id();
         let my_pid = CURRENT[core].lock(|c| c);
@@ -116,7 +116,7 @@ pub fn thread() {
         /*  debug!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
         debug!("\tSP={:#x}", aarch64_cpu::registers::SP.get()); */
         c += 1;
-        if c > stop_me {
+        /*  if c > stop_me {
             info!(
                 "Thread with PID={}! C={} @Core{} is going to sleep...",
                 my_pid.unwrap(),
@@ -124,9 +124,9 @@ pub fn thread() {
                 core
             );
             sleep();
-        }
+        } */
         reschedule();
-        time_manager().spin_for(Duration::from_millis(500));
+        time_manager().spin_for(Duration::from_millis((random::next_u64() % 2000) + 500));
     }
 }
 

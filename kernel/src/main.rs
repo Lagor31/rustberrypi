@@ -28,7 +28,8 @@
 use core::{ cell::UnsafeCell, panic, time::Duration };
 
 use crate::scheduler::{ reschedule_from_context, SLEEPING };
-use crate::thread::{ thread, wait_thread, Thread };
+use crate::synchronization::interface::Mutex;
+use crate::thread::{ thread, wait_thread, Thread, __switch_to };
 use aarch64_cpu::registers::{ SP, SP_EL0, SPSel };
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
@@ -70,6 +71,9 @@ pub mod random;
 extern "Rust" {
     static __test_me: UnsafeCell<()>;
 }
+
+static THREADS_NUMBER: usize = 5;
+
 /// Early init code.
 ///
 /// When this code runs, virtual memory is already enabled.
@@ -110,10 +114,6 @@ unsafe fn kernel_init() -> ! {
 
 /// The main function running after the early init.
 fn kernel_main() -> ! {
-    for _ in 0..10 {
-        info!("\n");
-    }
-
     info!("{}", version());
     info!("Booting on: {}", board::board_name());
 
@@ -138,9 +138,6 @@ fn kernel_main() -> ! {
     memory::heap_alloc::kernel_heap_allocator().print_usage();
     info!("Echoing input now");
 
-    info!("Enabling other cores");
-    (1..=3).for_each(|i| unsafe { start_core(i) });
-
     state::state_manager().transition_to_multi_core_main();
     info!("Kernel Init:\n");
     info!("SPSel={}", SPSel.get());
@@ -155,12 +152,15 @@ fn kernel_main() -> ! {
     let idle_thread = Thread::new(idle_thread_ep);
     RUNNING[core].add(idle_thread);
 
-    for i in 0..4 {
-        for _ in 0..10 {
+    for i in 0..=3 {
+        for _ in 0..THREADS_NUMBER {
             let new_thread = Thread::new(entry_point);
             RUNNING[core + i].add(new_thread);
         }
     }
+
+    info!("Enabling other cores");
+    (1..=3).for_each(|i| unsafe { start_core(i) });
 
     info!("Running Thread list for Core{}:\n{}", core, RUNNING[core]);
 
@@ -172,7 +172,7 @@ fn kernel_main() -> ! {
         })
     );
 
-    time_manager().set_timeout_periodic(
+    /*  time_manager().set_timeout_periodic(
         Duration::from_secs(5),
         Box::new(|_ec| {
             let core = core_id::<usize>();
@@ -194,6 +194,7 @@ fn kernel_main() -> ! {
 
             memory::heap_alloc::kernel_heap_allocator().print_usage();
         })
-    );
+    ); */
+
     wait_forever();
 }
