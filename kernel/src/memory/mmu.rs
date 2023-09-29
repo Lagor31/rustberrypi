@@ -23,7 +23,7 @@ use core::{fmt, num::NonZeroUsize};
 pub use types::*;
 
 use crate::{
-    memory::mmu::{self as generic_mmu, AttributeFields, MemoryRegion, PageAddress},
+    memory::mmu::{self as generic_mmu },
     synchronization::InitStateLock,
 };
 

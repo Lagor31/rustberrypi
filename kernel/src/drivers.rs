@@ -19,7 +19,6 @@ pub mod common;
 use super::{exception, memory::map::mmio};
 use crate::{
     console, driver as generic_driver,
-    drivers::{GICv2, PL011Uart},
     exception::{self as generic_exception},
     memory,
     memory::mmu::MMIODescriptor,
