@@ -25,21 +25,23 @@
 #![allow(dead_code, unused_imports)]
 #![feature(linked_list_remove)]
 
-use core::{ cell::UnsafeCell, panic, time::Duration };
+use core::{cell::UnsafeCell, panic, time::Duration};
 
-use crate::scheduler::{ reschedule_from_context, SLEEPING };
+use crate::driver::driver_manager;
+use crate::drivers::{get_gic, GICv2};
+use crate::scheduler::{reschedule_from_context, SLEEPING};
 use crate::synchronization::interface::Mutex;
-use crate::thread::{ thread, wait_thread, Thread, __switch_to };
-use aarch64_cpu::registers::{ SP, SP_EL0, SPSel };
+use crate::thread::{thread, wait_thread, Thread, __switch_to, sleep};
+use aarch64_cpu::registers::{SPSel, SP, SP_EL0};
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
 use tock_registers::interfaces::Readable;
 
 use crate::{
     board::version,
-    cpu::{ core_id, wait_forever },
-    exception::asynchronous::{ local_irq_mask_save, local_irq_restore },
-    scheduler::{ CURRENT, RUNNING },
+    cpu::{core_id, wait_forever},
+    exception::asynchronous::{local_irq_mask_save, local_irq_restore},
+    scheduler::{CURRENT, RUNNING},
     smp::start_core,
     time::time_manager,
 };
@@ -60,19 +62,19 @@ pub mod drivers;
 pub mod exception;
 pub mod memory;
 pub mod print;
+pub mod random;
 pub mod scheduler;
 pub mod smp;
 pub mod state;
 pub mod symbols;
 pub mod thread;
 pub mod time;
-pub mod random;
 
 extern "Rust" {
     static __test_me: UnsafeCell<()>;
 }
 
-static THREADS_NUMBER: usize = 5;
+static THREADS_NUMBER: usize = 1;
 
 /// Early init code.
 ///
@@ -126,7 +128,10 @@ fn kernel_main() -> ! {
     info!("Exception handling state:");
     exception::asynchronous::print_state();
 
-    info!("Architectural timer resolution: {} ns", time::time_manager().resolution().as_nanos());
+    info!(
+        "Architectural timer resolution: {} ns",
+        time::time_manager().resolution().as_nanos()
+    );
 
     info!("Drivers loaded:");
     driver::driver_manager().enumerate();
@@ -161,40 +166,17 @@ fn kernel_main() -> ! {
 
     info!("Enabling other cores");
     (1..=3).for_each(|i| unsafe { start_core(i) });
+    time_manager().spin_for(Duration::from_secs(2));
+    unsafe { get_gic().send_sgi(9, 3) };
 
     info!("Running Thread list for Core{}:\n{}", core, RUNNING[core]);
-
     //Setting the scheduler timer interrupt
     time_manager().set_timeout_periodic(
-        Duration::from_millis(2),
+        Duration::from_millis(100),
         Box::new(|_ec| {
+            //println!("Scheduler called!");
             reschedule_from_context(_ec);
-        })
+        }),
     );
-
-    /*  time_manager().set_timeout_periodic(
-        Duration::from_secs(5),
-        Box::new(|_ec| {
-            let core = core_id::<usize>();
-            debug!("Hi from core {}", core);
-            let entry_point = thread as *const () as u64;
-
-            let num_new_threads = (random::next_u64() % 10) + 1;
-            debug!("Creating {} new threads", num_new_threads);
-            for _ in 0..num_new_threads {
-                let new_thread = Thread::new(entry_point);
-                RUNNING[core].add(new_thread);
-            }
-
-            debug!("RUNNING Q Core{}:\n{}", core, RUNNING[core]);
-            if SLEEPING.size() > 0 {
-                SLEEPING.clear();
-            }
-            debug!("SLEEPING Q Core{}:\n{}", core, SLEEPING);
-
-            memory::heap_alloc::kernel_heap_allocator().print_usage();
-        })
-    ); */
-
     wait_forever();
 }
