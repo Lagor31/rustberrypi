@@ -8,7 +8,8 @@ mod gicc;
 mod gicd;
 
 use crate::{
-    cpu, driver,
+    cpu::{self, core_id},
+    driver,
     drivers::common::BoundedUsize,
     exception::{self, arch_exception::ExceptionContext},
     memory::{Address, Virtual},
@@ -46,6 +47,9 @@ pub struct GICv2 {
 //--------------------------------------------------------------------------------------------------
 // Public Code
 //--------------------------------------------------------------------------------------------------
+pub unsafe fn get_gic() -> &'static GICv2 {
+    INTERRUPT_CONTROLLER.assume_init_ref()
+}
 
 impl GICv2 {
     const MAX_IRQ_NUMBER: usize = 1019;
@@ -67,12 +71,18 @@ impl GICv2 {
             handler_table: InitStateLock::new(Vec::new()),
         }
     }
+
+    pub fn send_sgi(&self, int_num: u8, cpu: u8) {
+        self.gicd.send_sgi(int_num, cpu)
+    }
 }
 
 //------------------------------------------------------------------------------
 // OS Interface Code
 //------------------------------------------------------------------------------
 use synchronization::interface::ReadWriteEx;
+
+use super::INTERRUPT_CONTROLLER;
 
 impl driver::interface::DeviceDriver for GICv2 {
     type IRQNumberType = IRQNumber;
@@ -136,8 +146,13 @@ impl exception::asynchronous::interface::IRQManager for GICv2 {
 
         // Call the IRQ handler. Panic if there is none.
         self.handler_table.read(|table| {
+            let core: u8 = core_id();
+
             match table[irq_number] {
-                None => panic!("No handler registered for IRQ {}", irq_number),
+                None => panic!(
+                    "No handler registered for IRQ {} on Core{}",
+                    irq_number, core
+                ),
                 Some(descriptor) => {
                     // Call the IRQ handler. Panics on failure.
                     descriptor.handler().handle(e).expect("Error handling IRQ");

@@ -42,7 +42,14 @@ register_bitfields! {
         Offset2 OFFSET(16) NUMBITS(8) [],
         Offset1 OFFSET(8)  NUMBITS(8) [],
         Offset0 OFFSET(0)  NUMBITS(8) []
-    ]
+    ],
+
+    /// Software Generated Interrupts Registers
+    SGIR [
+        SgiIntID OFFSET(0) NUMBITS(4) [],
+        CPUTargetList OFFSET(16) NUMBITS(8) [],
+        TargetListFilter OFFSET(24) NUMBITS(2) []
+    ],
 }
 
 register_structs! {
@@ -65,7 +72,9 @@ register_structs! {
         (0x100 => ISENABLER: ReadWrite<u32>),
         (0x104 => _reserved2),
         (0x800 => ITARGETSR: [ReadOnly<u32, ITARGETSR::Register>; 8]),
-        (0x820 => @END),
+        (0x820 => _reserved3),
+        (0xF00 => SGIR: ReadWrite<u32, SGIR::Register>),
+        (0xF04 => @END),
     }
 }
 
@@ -124,6 +133,8 @@ impl SharedRegisters {
 //--------------------------------------------------------------------------------------------------
 use synchronization::interface::Mutex;
 
+use self::SGIR::SgiIntID;
+
 impl GICD {
     /// Create an instance.
     ///
@@ -145,6 +156,16 @@ impl GICD {
     ///    corresponds only to the processor reading the register."
     fn local_gic_target_mask(&self) -> u32 {
         self.banked_registers.ITARGETSR[0].read(ITARGETSR::Offset0)
+    }
+
+    pub fn send_sgi(&self, sgi_num: u8, cpu: u8) {
+        let sgi_reg = &self.banked_registers.SGIR;
+        sgi_reg.write(
+            SGIR::TargetListFilter.val(0)
+                + SGIR::SgiIntID.val(sgi_num as u32)
+                + SGIR::CPUTargetList.val(1 << cpu),
+        );
+        //sgi_reg.set(sgi_reg.get() | enable_bit);
     }
 
     /// Route all SPIs to the boot core and enable the distributor.

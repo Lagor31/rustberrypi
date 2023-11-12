@@ -33,7 +33,7 @@ endef
 ## Optional, user-provided configuration values
 ##--------------------------------------------------------------------------------------------------
 
-# Default to the RPi3.
+# Default to the RPi4.
 BSP ?= rpi4
 MODE ?= release
 
