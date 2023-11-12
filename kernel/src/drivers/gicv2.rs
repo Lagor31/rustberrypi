@@ -72,7 +72,7 @@ impl GICv2 {
         }
     }
 
-    pub fn send_sgi(&self, int_num: u8, cpu: u8) {
+    pub fn send_sgi(&self, int_num: IRQNumber, cpu: u8) {
         self.gicd.send_sgi(int_num, cpu)
     }
 }

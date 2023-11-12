@@ -1,29 +1,31 @@
 use core::{
-    alloc::{ GlobalAlloc, Layout, LayoutError },
-    mem,
-    sync::atomic::{ AtomicU64, Ordering },
-    time::Duration,
-    fmt,
+    alloc::{GlobalAlloc, Layout, LayoutError},
+    fmt, mem,
     ptr::addr_of_mut,
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
 };
 
-use aarch64_cpu::registers::{ DAIF, ESR_EL1, SPSR_EL1 };
-use rand::{ rngs::SmallRng, SeedableRng, RngCore };
-use tock_registers::{ interfaces::{ Readable, Writeable }, registers::InMemoryRegister };
+use aarch64_cpu::registers::{DAIF, ESR_EL1, SPSR_EL1};
+use rand::{rngs::SmallRng, RngCore, SeedableRng};
+use tock_registers::{
+    interfaces::{Readable, Writeable},
+    registers::InMemoryRegister,
+};
 
 use crate::{
-    cpu::{ wait_forever, core_id },
+    cpu::{core_id, wait_forever},
+    debug,
     exception::{
-        arch_exception::{ EsrEL1, ExceptionContext, SpsrEL1 },
-        asynchronous::{ is_local_irq_masked, local_irq_mask_save, local_irq_restore, print_state },
+        arch_exception::{EsrEL1, ExceptionContext, SpsrEL1},
+        asynchronous::{is_local_irq_masked, local_irq_mask_save, local_irq_restore, print_state},
     },
     info,
-    memory::{ self, heap_alloc::kernel_heap_allocator },
-    scheduler::{ CURRENT, RUNNING, SLEEPING },
-    time::time_manager,
-    synchronization::interface::Mutex,
-    debug,
+    memory::{self, heap_alloc::kernel_heap_allocator},
     random,
+    scheduler::{CURRENT, RUNNING, SLEEPING},
+    synchronization::interface::Mutex,
+    time::time_manager,
 };
 
 pub struct Thread {
@@ -32,7 +34,7 @@ pub struct Thread {
     original_stack: usize,
 }
 
-static PID: AtomicU64 = AtomicU64::new(1);
+static PID: AtomicU64 = AtomicU64::new(0);
 
 const STACK_SIZE: usize = 8192;
 const STACK_ALIGN: usize = 4096;
@@ -59,8 +61,7 @@ impl Thread {
     fn make_context(entry_point: u64) -> (ExceptionContext, *mut u8) {
         let stack_pointer_low_end;
         unsafe {
-            stack_pointer_low_end = memory::heap_alloc
-                ::kernel_heap_allocator()
+            stack_pointer_low_end = memory::heap_alloc::kernel_heap_allocator()
                 .alloc(Layout::from_size_align(STACK_SIZE, STACK_ALIGN).unwrap());
         }
 
@@ -91,7 +92,7 @@ impl Drop for Thread {
         unsafe {
             kernel_heap_allocator().dealloc(
                 self.original_stack as *mut u8,
-                Layout::from_size_align(STACK_SIZE, STACK_ALIGN).unwrap()
+                Layout::from_size_align(STACK_SIZE, STACK_ALIGN).unwrap(),
             )
         }
     }
@@ -106,13 +107,28 @@ extern "C" {
     pub fn __switch_to(current: &mut ExceptionContext, next: &mut ExceptionContext);
 }
 
+pub fn print_t() {
+    time_manager().spin_for(Duration::from_secs(10));
+
+    for i in 0..=3 {
+        info!("RUNNING[{}]\n{}", i, RUNNING[i]);
+    }
+
+    info!("SLEEPING:\n{}", SLEEPING)
+}
+
 pub fn thread() {
     let mut c: u64 = 0;
-    //let stop_me: u64 = (random::next_u64() % 20) + 1;
+    //let stop_me: u64 = (random::next_u64() % 200) + 1;
     loop {
         let core: usize = core_id();
         let my_pid = CURRENT[core].lock(|c| c);
-        info!("Hello from thread with PID={}! C={} @Core{}", my_pid.unwrap(), c, core);
+        info!(
+            "Hello from thread with PID={}! C={} @Core{}",
+            my_pid.unwrap(),
+            c,
+            core
+        );
         /*  debug!("\tSPSel={}", aarch64_cpu::registers::SPSel.get());
         debug!("\tSP={:#x}", aarch64_cpu::registers::SP.get()); */
         c += 1;
@@ -149,9 +165,9 @@ pub fn sleep() {
             _my_thread.get_ex_context().spsr_el1 &= 0b11111111111111111111111101111111;
         }
         SLEEPING.add(_my_thread);
-        let _my_thread = SLEEPING.get_by_pid(cur.unwrap()).unwrap_or_else(||
-            panic!("Cannot find PID={} in SLEEPING[{}]", cur.unwrap(), core)
-        );
+        let _my_thread = SLEEPING
+            .get_by_pid(cur.unwrap())
+            .unwrap_or_else(|| panic!("Cannot find PID={} in SLEEPING[{}]", cur.unwrap(), core));
         *cur = Some(next_thread.get_pid());
         unsafe { __switch_to(_my_thread.get_ex_context(), next_thread.get_ex_context()) }
     });
@@ -164,9 +180,9 @@ pub fn reschedule() {
     //debug!("[RESCHEDULE] Switching to thread {}...", next_thread.get_pid());
 
     CURRENT[core].lock(|cur| {
-        let _my_thread = RUNNING[core].get_by_pid(cur.unwrap()).unwrap_or_else(||
-            panic!("Cannot find PID={} in RUNNING[{}]", cur.unwrap(), core)
-        );
+        let _my_thread = RUNNING[core]
+            .get_by_pid(cur.unwrap())
+            .unwrap_or_else(|| panic!("Cannot find PID={} in RUNNING[{}]", cur.unwrap(), core));
         let int_not_masked = !is_local_irq_masked();
         //TODO: give abstraction to SPSR_EL1
         if int_not_masked {

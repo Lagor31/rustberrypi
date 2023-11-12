@@ -28,10 +28,11 @@
 use core::{cell::UnsafeCell, panic, time::Duration};
 
 use crate::driver::driver_manager;
-use crate::drivers::{get_gic, GICv2};
+use crate::drivers::{get_gic, GICv2, IRQNumber};
+use crate::exception::asynchronous::irq_map;
 use crate::scheduler::{reschedule_from_context, SLEEPING};
 use crate::synchronization::interface::Mutex;
-use crate::thread::{thread, wait_thread, Thread, __switch_to, sleep};
+use crate::thread::{thread, wait_thread, Thread, __switch_to, print_t, sleep};
 use aarch64_cpu::registers::{SPSel, SP, SP_EL0};
 use alloc::boxed::Box;
 use exception::arch_exception::ExceptionContext;
@@ -74,8 +75,8 @@ extern "Rust" {
     static __test_me: UnsafeCell<()>;
 }
 
-static THREADS_NUMBER: usize = 1;
-
+static THREADS_NUMBER: usize = 10;
+static TICK_MS: usize = 5;
 /// Early init code.
 ///
 /// When this code runs, virtual memory is already enabled.
@@ -153,29 +154,40 @@ fn kernel_main() -> ! {
 
     let entry_point = thread as *const () as u64;
     let idle_thread_ep = wait_thread as *const () as u64;
+    let print_t_ep = print_t as *const () as u64;
 
-    let idle_thread = Thread::new(idle_thread_ep);
-    RUNNING[core].add(idle_thread);
+    //PID {0, 1, 2, 3} are the idle threads for each core
+    for i in 0..=3 {
+        let idle_thread: Thread = Thread::new(idle_thread_ep);
+        RUNNING[i].add(idle_thread);
+    }
 
     for i in 0..=3 {
         for _ in 0..THREADS_NUMBER {
             let new_thread = Thread::new(entry_point);
-            RUNNING[core + i].add(new_thread);
+            RUNNING[i].add(new_thread);
         }
     }
+    let print_t_new = Thread::new(print_t_ep);
+    RUNNING[0].add(print_t_new);
 
     info!("Enabling other cores");
     (1..=3).for_each(|i| unsafe { start_core(i) });
-    time_manager().spin_for(Duration::from_secs(2));
-    unsafe { get_gic().send_sgi(9, 3) };
+    //time_manager().spin_for(Duration::from_secs(2));
 
     info!("Running Thread list for Core{}:\n{}", core, RUNNING[core]);
     //Setting the scheduler timer interrupt
     time_manager().set_timeout_periodic(
-        Duration::from_millis(100),
-        Box::new(|_ec| {
+        Duration::from_millis(TICK_MS as u64),
+        Box::new(|ec| {
             //println!("Scheduler called!");
-            reschedule_from_context(_ec);
+            unsafe {
+                get_gic().send_sgi(irq_map::SGI_9, 3);
+                get_gic().send_sgi(irq_map::SGI_9, 2);
+                get_gic().send_sgi(irq_map::SGI_9, 1);
+                //get_gic().send_sgi(irq_map::SGI_9, 0);
+            };
+            reschedule_from_context(ec);
         }),
     );
     wait_forever();

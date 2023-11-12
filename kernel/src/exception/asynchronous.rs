@@ -35,6 +35,8 @@ pub mod irq_map {
     pub const ARM_NS_PHYSICAL_TIMER: IRQNumber = IRQNumber::new(30);
     /// UART
     pub const PL011_UART: IRQNumber = IRQNumber::new(153);
+
+    pub const SGI_9: IRQNumber = IRQNumber::new(9);
 }
 /// Interrupt descriptor.
 #[derive(Copy, Clone)]

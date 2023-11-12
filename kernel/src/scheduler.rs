@@ -1,28 +1,34 @@
 use core::fmt;
-use core::sync::atomic::{ AtomicU64, Ordering };
-use core::{ borrow::BorrowMut, cell::UnsafeCell };
+use core::sync::atomic::{AtomicU64, Ordering};
+use core::{borrow::BorrowMut, cell::UnsafeCell};
 
 use alloc::collections::linked_list::Iter;
 use alloc::collections::LinkedList;
+use core::sync::atomic;
 use rand::rngs::SmallRng;
 use rand::RngCore;
 use rand::SeedableRng;
-use core::sync::atomic;
 // Create small, cheap to initialize and fast RNG with a random seed.
 // The randomness is supplied by the operating system.
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
-    collections::{ btree_map::{ IterMut, ValuesMut }, BTreeMap },
+    collections::{
+        btree_map::{IterMut, ValuesMut},
+        BTreeMap,
+    },
 };
-use spin::{ mutex::SpinMutex, rwlock::RwLock };
+use spin::{mutex::SpinMutex, rwlock::RwLock};
 
 use crate::cpu::core_id;
 use crate::exception::arch_exception::ExceptionContext;
-use crate::{ info, random };
 use crate::synchronization::IRQSafeLock;
 use crate::time::time_manager;
-use crate::{ synchronization::{ interface::Mutex, SpinLock }, thread::Thread };
+use crate::{info, random};
+use crate::{
+    synchronization::{interface::Mutex, SpinLock},
+    thread::Thread,
+};
 
 pub static CURRENT: [IRQSafeLock<Option<u64>>; 4] = [
     IRQSafeLock::new(Option::None), //CORE0
@@ -75,9 +81,8 @@ impl ThreadQueue {
     }
 
     pub fn pop(&self) -> Thread {
-        self.irq_lock.lock(|spin_lock| {
-            spin_lock.lock(|threads| { threads.pop_front().unwrap() })
-        })
+        self.irq_lock
+            .lock(|spin_lock| spin_lock.lock(|threads| threads.pop_front().unwrap()))
     }
 
     pub fn remove(&self, pid: u64) -> Option<Thread> {
@@ -112,11 +117,13 @@ impl ThreadQueue {
     }
 
     pub fn clear(&self) {
-        self.irq_lock.lock(|spin_lock| { spin_lock.lock(|threads| { threads.clear() }) })
+        self.irq_lock
+            .lock(|spin_lock| spin_lock.lock(|threads| threads.clear()))
     }
 
     pub fn size(&self) -> usize {
-        self.irq_lock.lock(|spin_lock| { spin_lock.lock(|threads| { threads.len() }) })
+        self.irq_lock
+            .lock(|spin_lock| spin_lock.lock(|threads| threads.len()))
     }
 }
 
@@ -146,16 +153,21 @@ pub fn reschedule_from_context(_ec: &mut ExceptionContext) {
     let core: usize = core_id();
     CURRENT[core].lock(|cur_pid| {
         if cur_pid.is_some() {
-            let _cur_thread = RUNNING[core].get_by_pid(cur_pid.unwrap()).unwrap_or_else(||
-                panic!("[IRQ] Cannot find PID={} in RUNNING[{}]", cur_pid.unwrap(), core)
-            );
+            let _cur_thread = RUNNING[core]
+                .get_by_pid(cur_pid.unwrap())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "[IRQ] Cannot find PID={} in RUNNING[{}]",
+                        cur_pid.unwrap(),
+                        core
+                    )
+                });
             store_context(_ec, _cur_thread.get_ex_context());
         } else {
             info!("Current = None");
         }
 
         let next_thread: &mut Thread = RUNNING[core].next().expect("No next thread found!");
-
         *cur_pid = Some(next_thread.get_pid());
         store_context(next_thread.get_ex_context(), _ec);
     })

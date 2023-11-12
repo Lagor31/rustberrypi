@@ -5,7 +5,7 @@
 //! Conditional reexporting of Board Support Packages.
 
 pub mod gicv2;
-
+pub mod sgi;
 pub use gicv2::*;
 
 mod bcm2711_gpio;
@@ -15,6 +15,8 @@ pub use bcm2711_gpio::*;
 pub use bcm2711_pl011_uart::*;
 
 pub mod common;
+
+use self::sgi::SGIHandler;
 
 use super::{exception, memory::map::mmio};
 use crate::{
@@ -34,7 +36,7 @@ use core::{
 
 static mut PL011_UART: MaybeUninit<PL011Uart> = MaybeUninit::uninit();
 static mut GPIO: MaybeUninit<GPIO> = MaybeUninit::uninit();
-
+static mut SGI_HANDLER: MaybeUninit<SGIHandler> = MaybeUninit::uninit();
 static mut INTERRUPT_CONTROLLER: MaybeUninit<GICv2> = MaybeUninit::uninit();
 
 //--------------------------------------------------------------------------------------------------
@@ -109,6 +111,17 @@ unsafe fn driver_uart() -> Result<(), &'static str> {
 }
 
 /// Function needs to ensure that driver registration happens only after correct instantiation.
+unsafe fn driver_sgi() -> Result<(), &'static str> {
+    let sgi_descriptor = generic_driver::DeviceDriverDescriptor::new(
+        SGI_HANDLER.assume_init_ref(),
+        None,
+        Some(exception::asynchronous::irq_map::SGI_9),
+    );
+    generic_driver::driver_manager().register_driver(sgi_descriptor);
+
+    Ok(())
+}
+/// Function needs to ensure that driver registration happens only after correct instantiation.
 unsafe fn driver_gpio() -> Result<(), &'static str> {
     instantiate_gpio()?;
 
@@ -154,7 +167,7 @@ pub unsafe fn init() -> Result<(), &'static str> {
     driver_uart()?;
     driver_gpio()?;
     driver_interrupt_controller()?;
-
+    driver_sgi()?;
     INIT_DONE.store(true, Ordering::Relaxed);
     Ok(())
 }

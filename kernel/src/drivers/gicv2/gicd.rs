@@ -9,6 +9,7 @@
 
 use crate::{
     drivers::common::MMIODerefWrapper,
+    exception::asynchronous::IRQNumber,
     memory::{Address, Virtual},
     state, synchronization,
     synchronization::IRQSafeLock,
@@ -158,14 +159,13 @@ impl GICD {
         self.banked_registers.ITARGETSR[0].read(ITARGETSR::Offset0)
     }
 
-    pub fn send_sgi(&self, sgi_num: u8, cpu: u8) {
+    pub fn send_sgi(&self, sgi_num: IRQNumber, cpu: u8) {
         let sgi_reg = &self.banked_registers.SGIR;
         sgi_reg.write(
             SGIR::TargetListFilter.val(0)
-                + SGIR::SgiIntID.val(sgi_num as u32)
+                + SGIR::SgiIntID.val(sgi_num.get() as u32)
                 + SGIR::CPUTargetList.val(1 << cpu),
         );
-        //sgi_reg.set(sgi_reg.get() | enable_bit);
     }
 
     /// Route all SPIs to the boot core and enable the distributor.
