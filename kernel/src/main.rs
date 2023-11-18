@@ -28,7 +28,7 @@
 use core::{cell::UnsafeCell, panic, time::Duration};
 
 use crate::driver::driver_manager;
-use crate::drivers::{get_gic, GICv2, IRQNumber};
+use crate::drivers::{get_gic, mailbox, GICv2, IRQNumber};
 use crate::exception::asynchronous::irq_map;
 use crate::scheduler::{reschedule_from_context, SLEEPING};
 use crate::synchronization::interface::Mutex;

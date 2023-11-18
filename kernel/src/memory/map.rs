@@ -6,6 +6,9 @@ use super::{Address, Physical};
 pub mod mmio {
     use crate::memory::{Address, Physical};
 
+    pub const MAILBOX_START: Address<Physical> = Address::new(0xFE00_B880);
+    pub const MAILBOX_SIZE: usize = 0x24;
+
     pub const GPIO_START: Address<Physical> = Address::new(0xFE20_0000);
     pub const GPIO_SIZE: usize = 0xA0;
 

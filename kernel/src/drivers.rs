@@ -4,19 +4,20 @@
 
 //! Conditional reexporting of Board Support Packages.
 
+pub mod common;
 pub mod gicv2;
+pub mod mailbox;
 pub mod sgi;
-pub use gicv2::*;
 
 mod bcm2711_gpio;
 mod bcm2711_pl011_uart;
 
+pub use gicv2::*;
+
 pub use bcm2711_gpio::*;
 pub use bcm2711_pl011_uart::*;
 
-pub mod common;
-
-use self::sgi::SGIHandler;
+use self::{mailbox::Mailbox, sgi::SGIHandler};
 
 use super::{exception, memory::map::mmio};
 use crate::{
@@ -38,6 +39,7 @@ static mut PL011_UART: MaybeUninit<PL011Uart> = MaybeUninit::uninit();
 static mut GPIO: MaybeUninit<GPIO> = MaybeUninit::uninit();
 static mut SGI_HANDLER: MaybeUninit<SGIHandler> = MaybeUninit::uninit();
 static mut INTERRUPT_CONTROLLER: MaybeUninit<GICv2> = MaybeUninit::uninit();
+static mut MAILBOX: MaybeUninit<Mailbox> = MaybeUninit::uninit();
 
 //--------------------------------------------------------------------------------------------------
 // Private Code
@@ -85,6 +87,16 @@ unsafe fn instantiate_interrupt_controller() -> Result<(), &'static str> {
     let gicc_virt_addr = memory::mmu::kernel_map_mmio("GICV2 GICC", &gicc_mmio_descriptor)?;
 
     INTERRUPT_CONTROLLER.write(GICv2::new(gicd_virt_addr, gicc_virt_addr));
+
+    Ok(())
+}
+
+/// This must be called only after successful init of the memory subsystem.
+unsafe fn instantiate_mailbox() -> Result<(), &'static str> {
+    let mailbox_mmio_descriptor = MMIODescriptor::new(mmio::MAILBOX_START, mmio::MAILBOX_SIZE);
+    let mailbox_virt_addr = memory::mmu::kernel_map_mmio("Mailbox", &mailbox_mmio_descriptor)?;
+
+    MAILBOX.write(Mailbox::new(mailbox_virt_addr));
 
     Ok(())
 }
@@ -149,6 +161,16 @@ unsafe fn driver_interrupt_controller() -> Result<(), &'static str> {
     Ok(())
 }
 
+/// Function needs to ensure that driver registration happens only after correct instantiation.
+unsafe fn driver_mailbox() -> Result<(), &'static str> {
+    instantiate_mailbox()?;
+
+    let mailbox_descriptor =
+        generic_driver::DeviceDriverDescriptor::new(MAILBOX.assume_init_ref(), None, None);
+    generic_driver::driver_manager().register_driver(mailbox_descriptor);
+
+    Ok(())
+}
 //--------------------------------------------------------------------------------------------------
 // Public Code
 //--------------------------------------------------------------------------------------------------
@@ -160,6 +182,7 @@ unsafe fn driver_interrupt_controller() -> Result<(), &'static str> {
 /// See child function calls.
 pub unsafe fn init() -> Result<(), &'static str> {
     static INIT_DONE: AtomicBool = AtomicBool::new(false);
+
     if INIT_DONE.load(Ordering::Relaxed) {
         return Err("Init already done");
     }
@@ -168,6 +191,7 @@ pub unsafe fn init() -> Result<(), &'static str> {
     driver_gpio()?;
     driver_interrupt_controller()?;
     driver_sgi()?;
+    driver_mailbox()?;
     INIT_DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
