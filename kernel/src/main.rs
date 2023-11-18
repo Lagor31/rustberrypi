@@ -71,10 +71,6 @@ pub mod symbols;
 pub mod thread;
 pub mod time;
 
-extern "Rust" {
-    static __test_me: UnsafeCell<()>;
-}
-
 static THREADS_NUMBER: usize = 10;
 static TICK_MS: usize = 5;
 /// Early init code.
